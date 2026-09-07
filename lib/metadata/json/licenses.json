@@ -1,0 +1,95 @@
+{
+  "columns": [
+    {
+      "key": "code",
+      "header": "Kode Voucher / Lisensi",
+      "sortable": true,
+      "render": {
+        "type": "badge",
+        "className": "font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-xs"
+      }
+    },
+    {
+      "key": "schoolName",
+      "header": "Nama Instansi / Sekolah",
+      "sortable": true,
+      "render": {
+        "type": "text-fallback",
+        "fallback": "-",
+        "className": "font-semibold text-slate-700"
+      }
+    },
+    {
+      "key": "maxUsage",
+      "header": "Batas Kuota",
+      "sortable": true,
+      "render": {
+        "type": "fraction",
+        "numeratorKey": "usageCount",
+        "denominatorKey": "maxUsage",
+        "className": "font-mono text-xs text-slate-700"
+      }
+    },
+    {
+      "key": "isUnlimited",
+      "header": "Tipe Kuota",
+      "render": {
+        "type": "boolean-badge",
+        "trueLabel": "Tanpa Batas",
+        "falseLabel": "Terbatas",
+        "trueClassName": "bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded text-[11px] font-bold",
+        "falseClassName": "bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[11px] font-bold"
+      }
+    },
+    {
+      "key": "expiredAt",
+      "header": "Kadaluarsa",
+      "sortable": true,
+      "render": {
+        "type": "text-fallback",
+        "fallback": "Selamanya",
+        "className": "font-mono text-xs text-slate-500"
+      }
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Kode Lisensi / Voucher",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: VCHR-SMK1-2025"
+    },
+    {
+      "key": "schoolName",
+      "label": "Nama Sekolah / Instansi",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: SMK Negeri 1 Jakarta"
+    },
+    {
+      "key": "maxUsage",
+      "label": "Batas Kuota Penggunaan",
+      "type": "number",
+      "required": true,
+      "placeholder": "100"
+    },
+    {
+      "key": "isUnlimited",
+      "label": "Tanpa Batas Kuota",
+      "type": "select",
+      "required": false,
+      "options": [
+        { "value": "false", "label": "Terbatas Sesuai Kuota" },
+        { "value": "true", "label": "Tanpa Batas (Unlimited)" }
+      ]
+    },
+    {
+      "key": "expiredAt",
+      "label": "Tanggal Kadaluarsa (YYYY-MM-DD)",
+      "type": "text",
+      "required": false,
+      "placeholder": "2026-12-31"
+    }
+  ]
+}

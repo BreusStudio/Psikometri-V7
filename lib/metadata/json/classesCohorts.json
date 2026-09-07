@@ -1,0 +1,43 @@
+{
+  "classColumns": [
+    {
+      "key": "name",
+      "header": "Nama Kelas",
+      "sortable": true,
+      "render": {
+        "type": "badge",
+        "className": "font-bold font-mono text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-lg border border-cyan-100 text-xs"
+      }
+    }
+  ],
+  "classFields": [
+    {
+      "key": "name",
+      "label": "Nama Kelas Baru",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: X-RPL-1, XII-TKJ-2"
+    }
+  ],
+  "cohortColumns": [
+    {
+      "key": "year",
+      "header": "Tahun Angkatan",
+      "sortable": true,
+      "render": {
+        "type": "badge-prefix",
+        "prefix": "Angkatan ",
+        "className": "font-bold font-mono text-indigo-800 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 text-xs"
+      }
+    }
+  ],
+  "cohortFields": [
+    {
+      "key": "year",
+      "label": "Tahun Angkatan Baru",
+      "type": "number",
+      "required": true,
+      "placeholder": "Contoh: 2025"
+    }
+  ]
+}

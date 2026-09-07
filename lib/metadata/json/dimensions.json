@@ -1,0 +1,92 @@
+{
+  "columns": [
+    {
+      "key": "testType",
+      "header": "Jenis Tes",
+      "sortable": true,
+      "render": {
+        "type": "badge-fallback",
+        "fallback": "-",
+        "className": "font-bold font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 text-xs inline-block"
+      }
+    },
+    {
+      "key": "name",
+      "header": "Nama Dimensi",
+      "sortable": true,
+      "render": {
+        "type": "text",
+        "className": "font-semibold text-slate-800"
+      }
+    },
+    {
+      "key": "weight",
+      "header": "Bobot Evaluasi",
+      "sortable": true,
+      "render": {
+        "type": "text-fallback",
+        "fallback": "1",
+        "className": "font-mono text-xs font-bold text-slate-700"
+      }
+    },
+    {
+      "key": "description",
+      "header": "Deskripsi Dimensi",
+      "render": {
+        "type": "text-fallback",
+        "fallback": "-",
+        "className": "text-slate-500 text-xs line-clamp-1"
+      }
+    }
+  ],
+  "fields": [
+    {
+      "key": "testType",
+      "label": "Jenis Tes / Sub-Tes",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: IQ, EQ, Holland, Kepribadian"
+    },
+    {
+      "key": "name",
+      "label": "Nama Dimensi Evaluasi",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: Realistic / Realistis"
+    },
+    {
+      "key": "weight",
+      "label": "Bobot Penilaian",
+      "type": "number",
+      "required": true,
+      "placeholder": "1"
+    },
+    {
+      "key": "scoringMethod",
+      "label": "Metode Standarisasi Nilai",
+      "type": "select",
+      "required": false,
+      "placeholder": "Pilih metode kalkulasi skor",
+      "options": [
+        { "value": "percentage", "label": "Persentase Skor Maksimum (0 - 100%)" },
+        { "value": "sum_raw", "label": "Akumulasi Skor Mentah (Sum Raw Score)" },
+        { "value": "sten", "label": "Standard Ten Scale (Sten 1 - 10)" },
+        { "value": "mean", "label": "Rata-rata Nilai Butir (Mean Score)" }
+      ]
+    },
+    {
+      "key": "passingGrade",
+      "label": "Batas Nilai Minimum / Passing Grade (Opsional)",
+      "type": "number",
+      "required": false,
+      "placeholder": "Contoh: 65"
+    },
+    {
+      "key": "description",
+      "label": "Deskripsi Karakteristik & Norma",
+      "type": "textarea",
+      "required": false,
+      "placeholder": "Keterangan karakter dan interpretasi psikometrik..."
+    }
+  ]
+}

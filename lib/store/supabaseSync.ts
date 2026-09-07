@@ -1,0 +1,729 @@
+import { supabase, isSupabaseConfigured, getIsSupabaseConfigured, initSupabaseClient, resilientUpsert } from '../supabase';
+import { StoreDataState, saveLocalStorageState } from './storageSync';
+import { mapDatabaseRowToStudent, mapDatabaseRowToQuestion, mapDatabaseRowToDimension } from './dbMappers';
+import { PRESET_QUESTIONS } from '../presetQuestions';
+import { PRESET_DIMENSIONS } from '../mock/presets';
+import { Student, Question, Dimension, Teacher, SchoolMajor } from '../types';
+import { markAnswerSynced } from '../indexedDB';
+import { syncManager } from '@/lib/api';
+
+export function mapStudentToDbRow(s: Student) {
+  const classGroup = s.classGroup || s.class_name || 'X-1';
+  const rawAngkatan = typeof s.angkatan === 'number' ? s.angkatan : (typeof s.cohort === 'number' ? Number(s.cohort) : new Date().getFullYear());
+  const angkatan = isNaN(rawAngkatan) ? new Date().getFullYear() : rawAngkatan;
+
+  let aiAnalysisVal: string | null = null;
+  if (typeof s.aiAnalysis === 'string') {
+    aiAnalysisVal = s.aiAnalysis;
+  } else if (s.aiAnalysis && typeof s.aiAnalysis === 'object') {
+    try {
+      aiAnalysisVal = JSON.stringify(s.aiAnalysis);
+    } catch {
+      aiAnalysisVal = null;
+    }
+  }
+
+  const rawIq = typeof s.iqScore === 'number' ? s.iqScore : (s.iqScore ? Number(s.iqScore) : null);
+  const iqScore = rawIq !== null && !isNaN(rawIq) ? rawIq : null;
+
+  const rawEq = typeof s.eqScore === 'number' ? s.eqScore : (s.eqScore ? Number(s.eqScore) : null);
+  const eqScore = rawEq !== null && !isNaN(rawEq) ? rawEq : null;
+
+  return {
+    id: String(s.id || '').trim(),
+    name: String(s.name || '').trim(),
+    class_group: String(classGroup).trim(),
+    angkatan: angkatan,
+    archived: Boolean(s.archived || false),
+    password: String(s.password || '123456').trim(),
+    iq_score: iqScore,
+    eq_score: eqScore,
+    riasec_scores: s.riasecScores && typeof s.riasecScores === 'object' ? s.riasecScores : null,
+    dimension_scores: s.dimensionScores && typeof s.dimensionScores === 'object' ? s.dimensionScores : null,
+    locked_out: Boolean(s.lockedOut || false),
+    lock_reason: s.lockReason ? String(s.lockReason) : null,
+    test_started: Boolean(s.testStarted || false),
+    test_completed: Boolean(s.testCompleted || false),
+    test_started_at: s.testStartedAt ? String(s.testStartedAt) : null,
+    test_completed_at: s.testCompletedAt ? String(s.testCompletedAt) : null,
+    current_question_index: typeof s.currentQuestionIndex === 'number' && !isNaN(s.currentQuestionIndex) ? s.currentQuestionIndex : 0,
+    answers: s.answers && typeof s.answers === 'object' ? s.answers : {},
+    cheat_warnings: typeof s.cheatWarnings === 'number' && !isNaN(s.cheatWarnings) ? s.cheatWarnings : 0,
+    ai_analysis: aiAnalysisVal,
+    completed_tests: Array.isArray(s.completedTests) ? s.completedTests : [],
+    allow_test_types: Array.isArray(s.allowedTests) ? s.allowedTests : null,
+    school_origin: s.schoolOrigin || s.school_origin ? String(s.schoolOrigin || s.school_origin) : null
+  };
+}
+
+export function mapStudentToCoreDbRow(s: Student) {
+  const classGroup = s.classGroup || s.class_name || 'X-1';
+  const rawAngkatan = typeof s.angkatan === 'number' ? s.angkatan : (typeof s.cohort === 'number' ? Number(s.cohort) : new Date().getFullYear());
+  const angkatan = isNaN(rawAngkatan) ? new Date().getFullYear() : rawAngkatan;
+
+  return {
+    id: String(s.id || '').trim(),
+    name: String(s.name || '').trim(),
+    class_group: String(classGroup).trim(),
+    angkatan: angkatan,
+    password: String(s.password || '123456').trim(),
+    test_started: Boolean(s.testStarted || false),
+    test_completed: Boolean(s.testCompleted || false),
+    answers: s.answers && typeof s.answers === 'object' ? s.answers : {}
+  };
+}
+
+export function setupRealtimeSubscriptions(
+  state: StoreDataState,
+  notify: () => void
+): (() => void) | undefined {
+  if (!getIsSupabaseConfigured() || !supabase) return undefined;
+
+  const client = supabase;
+  const channel = client
+    .channel('schema-db-changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'students' },
+      async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const updatedStudent = mapDatabaseRowToStudent(payload.new);
+          const idx = state.students.findIndex(s => s.id === updatedStudent.id);
+          if (idx >= 0) {
+            state.students[idx] = updatedStudent;
+          } else {
+            state.students.push(updatedStudent);
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = payload.old?.id;
+          if (deletedId) {
+            state.students = state.students.filter(s => s.id !== deletedId);
+          }
+        }
+        notify();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'test_settings' },
+      async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const row = payload.new;
+          state.testSettings = {
+            ...state.testSettings,
+            iqActive: row.iq_active,
+            eqActive: row.eq_active,
+            hollandActive: row.holland_active,
+            kepribadianActive: row.kepribadian_active !== undefined ? row.kepribadian_active : true,
+            validitasActive: row.validitas_active !== undefined ? row.validitas_active : true,
+            autoAiAnalysis: row.auto_ai_analysis,
+            iqLimit: row.iq_limit,
+            eqLimit: row.eq_limit,
+            hollandLimit: row.holland_limit,
+            kepribadianLimit: row.kepribadian_limit !== undefined ? row.kepribadian_limit : 12,
+            validitasLimit: row.validitas_limit !== undefined ? row.validitas_limit : 12,
+            randomizeQuestions: row.randomize_questions,
+            randomizeChoices: row.randomize_choices !== undefined ? row.randomize_choices : true,
+            iqDuration: row.iq_duration || 15,
+            eqDuration: row.eq_duration || 15,
+            hollandDuration: row.holland_duration || 15,
+            kepribadianDuration: row.kepribadian_duration || 15,
+            validitasDuration: row.validitas_duration || 15
+          };
+          if (Array.isArray(row.registered_classes)) state.registeredClasses = row.registered_classes;
+          if (Array.isArray(row.registered_cohorts)) state.registeredCohorts = row.registered_cohorts;
+          if (Array.isArray(row.vouchers)) state.vouchers = row.vouchers;
+          if (Array.isArray(row.referrals)) state.referrals = row.referrals;
+          if (Array.isArray(row.commissions)) state.commissions = row.commissions;
+          if (Array.isArray(row.purchases)) state.purchases = row.purchases;
+          if (Array.isArray(row.packages)) state.packages = row.packages;
+          if (typeof row.quota_added === 'number') state.quotaAdded = row.quota_added;
+          if (Array.isArray(row.test_types)) state.testTypes = row.test_types;
+        }
+        notify();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'registered_classes' },
+      async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const name = String(payload.new?.name || payload.new?.id).trim().toUpperCase();
+          if (name && !state.registeredClasses.includes(name)) {
+            state.registeredClasses.push(name);
+            state.registeredClasses.sort();
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const name = String(payload.old?.name || payload.old?.id).trim().toUpperCase();
+          if (name) {
+            state.registeredClasses = state.registeredClasses.filter(c => c !== name);
+          }
+        }
+        notify();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'registered_cohorts' },
+      async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const year = Number(payload.new?.year || payload.new?.id);
+          if (!isNaN(year) && !state.registeredCohorts.includes(year)) {
+            state.registeredCohorts.push(year);
+            state.registeredCohorts.sort((a,b) => a-b);
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const year = Number(payload.old?.year || payload.old?.id);
+          if (!isNaN(year)) {
+            state.registeredCohorts = state.registeredCohorts.filter(y => y !== year);
+          }
+        }
+        notify();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    client.removeChannel(channel);
+  };
+}
+
+export async function syncWithSupabase(state: StoreDataState): Promise<boolean> {
+  // If client Supabase not configured yet, attempt loading config from server API
+  if (!supabase || !getIsSupabaseConfigured()) {
+    try {
+      const configRes = await fetch('/api/config');
+      if (configRes.ok) {
+        const json = await configRes.json();
+        const config = json.data || json;
+        if (config.supabaseUrl && config.supabaseAnonKey) {
+          initSupabaseClient(config.supabaseUrl, config.supabaseAnonKey);
+        }
+      }
+    } catch {
+      // Fallback below
+    }
+  }
+
+  // Attempt reading students via REST API if client Supabase is not directly connected
+  if (!supabase) {
+    try {
+      const res = await fetch('/api/students?limit=1000');
+      if (res.ok) {
+        const json = await res.json();
+        const items = json.data?.items || json.data || json;
+        if (Array.isArray(items) && items.length > 0) {
+          state.students = items;
+          saveLocalStorageState(state);
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn("Rest sync fallback caught:", err);
+    }
+    return false;
+  }
+  try {
+    // 1. Sync Settings & System State
+    const { data: settingsData, error: settingsError } = await supabase
+      .from('test_settings')
+      .select('*')
+      .eq('id', 'global')
+      .maybeSingle();
+
+    if (!settingsError && settingsData) {
+      const ttIq = Array.isArray(settingsData.test_types) ? settingsData.test_types.find((t: any) => t.id === 'iq') : null;
+      const ttEq = Array.isArray(settingsData.test_types) ? settingsData.test_types.find((t: any) => t.id === 'eq') : null;
+      const ttHolland = Array.isArray(settingsData.test_types) ? settingsData.test_types.find((t: any) => t.id === 'holland' || t.id === 'minat') : null;
+      const ttKepribadian = Array.isArray(settingsData.test_types) ? settingsData.test_types.find((t: any) => t.id === 'kepribadian') : null;
+      const ttValiditas = Array.isArray(settingsData.test_types) ? settingsData.test_types.find((t: any) => t.id === 'validitas') : null;
+
+      state.testSettings = {
+        ...state.testSettings,
+        iqActive: settingsData.iq_active !== undefined ? settingsData.iq_active : (ttIq?.active ?? true),
+        eqActive: settingsData.eq_active !== undefined ? settingsData.eq_active : (ttEq?.active ?? true),
+        hollandActive: settingsData.holland_active !== undefined ? settingsData.holland_active : (ttHolland?.active ?? true),
+        kepribadianActive: settingsData.kepribadian_active !== undefined ? settingsData.kepribadian_active : (ttKepribadian?.active ?? true),
+        validitasActive: settingsData.validitas_active !== undefined ? settingsData.validitas_active : (ttValiditas?.active ?? true),
+        autoAiAnalysis: settingsData.auto_ai_analysis !== undefined ? settingsData.auto_ai_analysis : true,
+        iqLimit: settingsData.iq_limit || ttIq?.limit || 12,
+        eqLimit: settingsData.eq_limit || ttEq?.limit || 12,
+        hollandLimit: settingsData.holland_limit || ttHolland?.limit || 12,
+        kepribadianLimit: settingsData.kepribadian_limit !== undefined ? settingsData.kepribadian_limit : (ttKepribadian?.limit ?? 12),
+        validitasLimit: settingsData.validitas_limit !== undefined ? settingsData.validitas_limit : (ttValiditas?.limit ?? 12),
+        randomizeQuestions: settingsData.randomize_questions !== undefined ? settingsData.randomize_questions : true,
+        randomizeChoices: settingsData.randomize_choices !== undefined ? settingsData.randomize_choices : true,
+        iqDuration: settingsData.iq_duration || ttIq?.duration || settingsData.bakat_duration || 15,
+        eqDuration: settingsData.eq_duration || ttEq?.duration || 15,
+        hollandDuration: settingsData.holland_duration || ttHolland?.duration || settingsData.minat_duration || 15,
+        kepribadianDuration: settingsData.kepribadian_duration || ttKepribadian?.duration || 15,
+        validitasDuration: settingsData.validitas_duration || ttValiditas?.duration || 15
+      };
+
+      if (Array.isArray(settingsData.registered_classes)) state.registeredClasses = settingsData.registered_classes;
+      if (Array.isArray(settingsData.registered_cohorts)) state.registeredCohorts = settingsData.registered_cohorts;
+      // Fallback JSONB loads
+      if (Array.isArray(settingsData.vouchers)) state.vouchers = settingsData.vouchers;
+      if (Array.isArray(settingsData.referrals)) state.referrals = settingsData.referrals;
+      if (Array.isArray(settingsData.commissions)) state.commissions = settingsData.commissions;
+      if (Array.isArray(settingsData.purchases)) state.purchases = settingsData.purchases;
+      if (Array.isArray(settingsData.packages)) state.packages = settingsData.packages;
+      
+      // Attempt to load from normalized tables (Fase 1 Migration)
+      const { data: vouchersData } = await supabase.from('vouchers').select('*');
+      if (vouchersData && Array.isArray(vouchersData) && vouchersData.length > 0) {
+        state.vouchers = vouchersData.map(v => ({
+          code: v.code,
+          type: v.type,
+          value: v.value,
+          active: v.active,
+          usageCount: v.usage_count,
+          schoolName: v.school_name,
+          maxUsage: v.max_usage,
+          isUnlimited: v.is_unlimited,
+          expiredAt: v.expired_at,
+          testTypes: v.test_types,
+          testCount: v.test_count,
+          generatedAccounts: v.generated_accounts,
+          adminUsername: v.admin_username,
+          adminPassword: v.admin_password
+        }));
+      }
+
+      const { data: purchasesData } = await supabase.from('purchases').select('*');
+      if (purchasesData && Array.isArray(purchasesData) && purchasesData.length > 0) {
+        state.purchases = purchasesData.map(p => ({
+          id: p.id,
+          platform: p.platform,
+          packageName: p.package_name,
+          buyerName: p.buyer_name,
+          buyerEmail: p.buyer_email,
+          amount: p.amount,
+          voucherUsed: p.voucher_used,
+          referralUsed: p.referral_used,
+          commissionEarned: p.commission_earned,
+          date: p.date,
+          status: p.status,
+          quotaAdded: p.quota_added,
+          generatedVoucher: p.generated_voucher
+        }));
+      }
+
+      const { data: packagesData } = await supabase.from('packages').select('*');
+      if (packagesData && Array.isArray(packagesData) && packagesData.length > 0) {
+        state.packages = packagesData.map(p => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          testCount: p.test_count,
+          category: p.category,
+          description: p.description,
+          testTypes: p.test_types,
+          active: p.active,
+          logoUrl: p.logo_url,
+          headerTitle: p.header_title,
+          institutionName: p.institution_name,
+          institutionSub: p.institution_sub,
+          signatureName: p.signature_name,
+          signatureTitle: p.signature_title,
+          signatureNip: p.signature_nip,
+          educationLevels: p.education_levels,
+          popular: p.popular,
+          quota: p.quota,
+          originalPrice: p.original_price,
+          features: p.features,
+          badgeText: p.badge_text,
+          testTypeId: p.test_type_id,
+          pricePerAccount: p.price_per_account,
+          discountPercentage: p.discount_percentage
+        }));
+      }
+      if (typeof settingsData.quota_added === 'number') state.quotaAdded = settingsData.quota_added;
+      if (Array.isArray(settingsData.test_types)) state.testTypes = settingsData.test_types;
+    } else {
+      await upsertTestSettings(state);
+    }
+
+    // 2. Sync Questions
+    let { data: questionsData, error: qError } = await supabase.from('questions').select('*');
+    if (!qError && questionsData) {
+      let localDeletedIds: Set<string> = new Set();
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('psychometric_deleted_question_ids');
+          if (stored) {
+            localDeletedIds = new Set(JSON.parse(stored));
+          }
+        } catch (err) {
+          console.warn("Could not read deleted questions cache:", err);
+        }
+      }
+
+      // Initial seed ONLY if table is completely empty and no questions were ever deleted
+      if (questionsData.length === 0 && localDeletedIds.size === 0) {
+        await supabase.from('questions').upsert(PRESET_QUESTIONS.map(q => ({
+          id: q.id,
+          test_type: q.testType,
+          dimension: q.dimension,
+          text: q.text,
+          choices: q.choices,
+          image_url: q.imageUrl || null
+        })));
+        const { data: reFetched } = await supabase.from('questions').select('*');
+        if (reFetched) questionsData = reFetched;
+      }
+      
+      state.questions = questionsData
+        .filter(q => !localDeletedIds.has(String(q.id)))
+        .map(q => mapDatabaseRowToQuestion(q));
+    }
+
+    // 3. Sync Dimensions
+    let { data: dimData, error: dimError } = await supabase.from('dimensions').select('*');
+    if (!dimError && dimData) {
+      const existingDimIds = new Set(dimData.map(d => d.id));
+      const missingDimensions = PRESET_DIMENSIONS.filter(d => !existingDimIds.has(d.id));
+      
+      if (missingDimensions.length > 0) {
+        await supabase.from('dimensions').upsert(missingDimensions.map(d => ({
+          id: d.id,
+          name: d.name,
+          test_type: d.testType,
+          description: d.description || null
+        })));
+        const { data: reFetchedDim } = await supabase.from('dimensions').select('*');
+        if (reFetchedDim) dimData = reFetchedDim;
+      }
+      state.dimensions = dimData.map(d => mapDatabaseRowToDimension(d));
+    }
+
+    // 4. Sync School Majors
+    const { data: majorData, error: majorError } = await supabase.from('school_majors').select('*');
+    if (!majorError && majorData) {
+      state.schoolMajors = majorData.map(m => ({
+        id: m.id,
+        code: m.code,
+        name: m.name,
+        riasecType: m.riasec_type as 'R' | 'I' | 'A' | 'S' | 'E' | 'C',
+        description: m.description || ''
+      }));
+    }
+
+    // 5. Sync Teachers
+    const { data: teachersData, error: teachError } = await supabase.from('teachers').select('*');
+    if (!teachError && teachersData) {
+      state.teachers = teachersData.map(t => {
+        const localTeacher = state.teachers.find(lt => lt.id === t.id);
+        return {
+          id: t.id,
+          name: t.name,
+          role: t.role,
+          password: t.password,
+          managed_class: t.managed_class !== undefined ? (t.managed_class || undefined) : (localTeacher?.managed_class || undefined)
+        };
+      });
+    }
+
+    // 6. Sync Students
+    const { data: studentsData, error: studError } = await supabase.from('students').select('*');
+    if (!studError && Array.isArray(studentsData)) {
+      state.students = studentsData.map(row => mapDatabaseRowToStudent(row));
+      saveLocalStorageState(state);
+    }
+
+    // 7. Sync Registered Classes
+    const { data: classTableData, error: classTableError } = await supabase.from('registered_classes').select('*');
+    if (!classTableError && Array.isArray(classTableData)) {
+      state.registeredClasses = Array.from(new Set(classTableData.map(c => c.name || c.id))).sort();
+      saveLocalStorageState(state);
+    }
+
+    // 8. Sync Registered Cohorts
+    const { data: cohortTableData, error: cohortTableError } = await supabase.from('registered_cohorts').select('*');
+    if (!cohortTableError && Array.isArray(cohortTableData)) {
+      state.registeredCohorts = Array.from(new Set(cohortTableData.map(c => Number(c.year || c.id)).filter(y => !isNaN(y)))).sort((a,b) => a-b);
+      saveLocalStorageState(state);
+    }
+
+    return true;
+  } catch (e) {
+    console.error("Supabase sync failed:", e);
+    return false;
+  }
+}
+
+/**
+ * Helper to safely upsert test settings into Supabase with automatic schema fallback
+ */
+async function upsertTestSettings(state: StoreDataState) {
+  if (!supabase) return;
+
+  const enrichedTestTypes = Array.isArray(state.testTypes)
+    ? state.testTypes.map(tt => {
+        if (tt.id === 'iq') return { ...tt, active: state.testSettings.iqActive, duration: state.testSettings.iqDuration, limit: state.testSettings.iqLimit };
+        if (tt.id === 'eq') return { ...tt, active: state.testSettings.eqActive, duration: state.testSettings.eqDuration, limit: state.testSettings.eqLimit };
+        if (tt.id === 'holland' || tt.id === 'minat') return { ...tt, active: state.testSettings.hollandActive, duration: state.testSettings.hollandDuration, limit: state.testSettings.hollandLimit };
+        if (tt.id === 'kepribadian') return { ...tt, active: state.testSettings.kepribadianActive, duration: state.testSettings.kepribadianDuration, limit: state.testSettings.kepribadianLimit };
+        if (tt.id === 'validitas') return { ...tt, active: state.testSettings.validitasActive, duration: state.testSettings.validitasDuration, limit: state.testSettings.validitasLimit };
+        return tt;
+      })
+    : state.testTypes;
+
+  const fullPayload = {
+    id: 'global',
+    iq_active: state.testSettings.iqActive,
+    eq_active: state.testSettings.eqActive,
+    holland_active: state.testSettings.hollandActive,
+    kepribadian_active: state.testSettings.kepribadianActive,
+    validitas_active: state.testSettings.validitasActive,
+    auto_ai_analysis: state.testSettings.autoAiAnalysis,
+    iq_limit: state.testSettings.iqLimit,
+    eq_limit: state.testSettings.eqLimit,
+    holland_limit: state.testSettings.hollandLimit,
+    kepribadian_limit: state.testSettings.kepribadianLimit,
+    validitas_limit: state.testSettings.validitasLimit,
+    randomize_questions: state.testSettings.randomizeQuestions,
+    randomize_choices: state.testSettings.randomizeChoices,
+    iq_duration: state.testSettings.iqDuration,
+    eq_duration: state.testSettings.eqDuration,
+    holland_duration: state.testSettings.hollandDuration,
+    kepribadian_duration: state.testSettings.kepribadianDuration,
+    validitas_duration: state.testSettings.validitasDuration,
+    minat_duration: state.testSettings.hollandDuration,
+    bakat_duration: state.testSettings.iqDuration,
+    registered_classes: state.registeredClasses,
+    registered_cohorts: state.registeredCohorts,
+    quota_added: state.quotaAdded,
+    test_types: enrichedTestTypes,
+    // Keep legacy JSONB for fallback
+    vouchers: state.vouchers,
+    referrals: state.referrals,
+    commissions: state.commissions,
+    purchases: state.purchases,
+    packages: state.packages
+  };
+
+  const { error } = await resilientUpsert(supabase, 'test_settings', fullPayload);
+  if (error) {
+    console.warn("Notice: test_settings sync operating in local-memory fallback mode:", error.message || error);
+  }
+
+  // Sync to normalized tables
+  if (state.vouchers.length > 0) {
+    const vRows = state.vouchers.map(v => ({
+      code: v.code,
+      type: v.type,
+      value: v.value,
+      active: v.active,
+      usage_count: v.usageCount,
+      school_name: v.schoolName || null,
+      max_usage: v.maxUsage || null,
+      is_unlimited: v.isUnlimited || false,
+      expired_at: v.expiredAt || null,
+      test_types: v.testTypes || null,
+      test_count: v.testCount || null,
+      generated_accounts: v.generatedAccounts || null,
+      admin_username: v.adminUsername || null,
+      admin_password: v.adminPassword || null
+    }));
+    await resilientUpsert(supabase, 'vouchers', vRows, { onConflict: 'code' });
+  }
+
+  if (state.purchases.length > 0) {
+    const pRows = state.purchases.map(p => ({
+      id: p.id,
+      platform: p.platform,
+      package_name: p.packageName,
+      buyer_name: p.buyerName,
+      buyer_email: p.buyerEmail,
+      amount: p.amount,
+      voucher_used: p.voucherUsed || null,
+      referral_used: p.referralUsed || null,
+      commission_earned: p.commissionEarned,
+      date: p.date,
+      status: p.status,
+      quota_added: p.quotaAdded || 0,
+      generated_voucher: p.generatedVoucher || null
+    }));
+    await resilientUpsert(supabase, 'purchases', pRows, { onConflict: 'id' });
+  }
+
+  if (state.packages.length > 0) {
+    const pkgRows = state.packages.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      test_count: p.testCount || null,
+      category: p.category || null,
+      description: p.description || null,
+      test_types: p.testTypes || null,
+      active: p.active ?? true,
+      logo_url: p.logoUrl || null,
+      header_title: p.headerTitle || null,
+      institution_name: p.institutionName || null,
+      institution_sub: p.institutionSub || null,
+      signature_name: p.signatureName || null,
+      signature_title: p.signatureTitle || null,
+      signature_nip: p.signatureNip || null,
+      education_levels: p.educationLevels || null,
+      popular: p.popular || false,
+      quota: p.quota || null,
+      original_price: p.originalPrice || null,
+      features: p.features || null,
+      badge_text: p.badgeText || null,
+      test_type_id: p.testTypeId || null,
+      price_per_account: p.pricePerAccount || null,
+      discount_percentage: p.discountPercentage || null
+    }));
+    await resilientUpsert(supabase, 'packages', pkgRows, { onConflict: 'id' });
+  }
+
+}
+
+export async function saveToSupabaseTarget(
+  state: StoreDataState,
+  target?: {
+    studentId?: string;
+    lastAnsweredQId?: string;
+    settings?: boolean;
+    questions?: boolean;
+    teachers?: boolean;
+    majors?: boolean;
+    dimensions?: boolean;
+    deleteStudentId?: string;
+    deleteQuestionId?: string;
+    deleteTeacherId?: string;
+    deleteMajorId?: string;
+    full?: boolean;
+  }
+): Promise<any> {
+  const actualTarget = (target || { settings: true, full: true }) as any;
+
+  // 1. ALWAYS dispatch REST API sync payload to server /api/sync so server writes using server credentials
+  try {
+    if (actualTarget.studentId) {
+      const s = state.students.find(x => x.id === actualTarget.studentId);
+      if (s) {
+        syncManager.enqueue({ type: 'student_upsert', studentId: s.id, data: s });
+      }
+    } else if (actualTarget.deleteStudentId) {
+      syncManager.enqueue({ type: 'student_delete', studentId: actualTarget.deleteStudentId });
+    } else if (actualTarget.full || (actualTarget.students && state.students.length > 0)) {
+      syncManager.enqueue({ type: 'full_students_sync', data: state.students });
+    }
+
+    if (actualTarget.questions && state.questions.length > 0) {
+      syncManager.enqueue({ type: 'questions_sync', data: state.questions });
+    }
+
+    if (actualTarget.teachers && state.teachers.length > 0) {
+      syncManager.enqueue({ type: 'teachers_sync', data: state.teachers });
+    }
+  } catch (enqueueErr) {
+    console.warn("Sync enqueue caught:", enqueueErr);
+  }
+
+  // 2. Direct browser-to-Supabase call if client supabase is initialized
+  if (!getIsSupabaseConfigured() || !supabase) return;
+  const client = supabase;
+
+  try {
+    if (actualTarget.settings || actualTarget.full) {
+      await upsertTestSettings(state);
+
+      if (state.registeredClasses.length > 0) {
+        const { error } = await resilientUpsert(client, 'registered_classes', state.registeredClasses.map(c => ({ id: c, name: c })));
+        if (error) console.error("Supabase error upserting registered_classes:", error);
+      }
+      if (state.registeredCohorts.length > 0) {
+        const { error } = await resilientUpsert(client, 'registered_cohorts', state.registeredCohorts.map(y => ({ id: String(y), year: y })));
+        if (error) console.error("Supabase error upserting registered_cohorts:", error);
+      }
+    }
+
+    if (actualTarget.studentId) {
+      const s = state.students.find(x => x.id === actualTarget.studentId);
+      if (s && s.id && String(s.id).trim() !== '' && String(s.id).trim() !== 'undefined') {
+        const row = mapStudentToDbRow(s);
+        const { error } = await resilientUpsert(client, 'students', row);
+        
+        if (error) {
+          console.warn("Supabase student upsert notice:", error.message || error);
+          if (error.code === '42501' || error.message?.includes('row-level security')) {
+            console.warn("[Supabase RLS Error] Row-Level Security is blocking student upserts. Run 'sql-rls.sql' in Supabase SQL Editor.");
+          }
+        } else if (actualTarget.lastAnsweredQId) {
+          markAnswerSynced(s.id, actualTarget.lastAnsweredQId).catch(() => {});
+        }
+      }
+    } else if (actualTarget.deleteStudentId) {
+      const { error } = await client.from('students').delete().eq('id', actualTarget.deleteStudentId);
+      if (error) console.warn("Supabase student delete notice:", error.message || error);
+    } else if (actualTarget.full && state.students.length > 0) {
+      const rows = state.students
+        .map(s => mapStudentToDbRow(s))
+        .filter(r => Boolean(r.id) && r.id !== 'undefined');
+
+      const chunkSize = 50;
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        const chunk = rows.slice(i, i + chunkSize);
+        const { error } = await resilientUpsert(client, 'students', chunk);
+        if (error) {
+          console.warn("Supabase batch students upsert notice:", error.message || error);
+          if (error.code === '42501' || error.message?.includes('row-level security')) {
+            console.warn("[Supabase RLS Error] Row-Level Security is blocking student batch upserts. Run 'sql-rls.sql' in Supabase SQL Editor.");
+          }
+        }
+      }
+    }
+
+    if (actualTarget.deleteQuestionId) {
+      const { error } = await client.from('questions').delete().eq('id', actualTarget.deleteQuestionId);
+      if (error) console.error("Supabase error deleting question:", error);
+    } else if (actualTarget.questions && state.questions.length > 0) {
+      const { error } = await resilientUpsert(client, 'questions', state.questions.map(q => ({
+        id: q.id,
+        test_type: q.testType,
+        dimension: q.dimension,
+        text: q.text,
+        choices: q.choices,
+        image_url: q.imageUrl || null
+      })));
+      if (error) console.error("Supabase error upserting questions:", error);
+    }
+
+    if (actualTarget.dimensions && state.dimensions.length > 0) {
+      const { error } = await resilientUpsert(client, 'dimensions', state.dimensions.map(d => ({
+        id: d.id,
+        name: d.name,
+        test_type: d.testType,
+        description: d.description
+      })));
+      if (error) console.error("Supabase error upserting dimensions:", error);
+    }
+
+    if (actualTarget.teachers && state.teachers.length > 0) {
+      const { error } = await resilientUpsert(client, 'teachers', state.teachers.map(t => ({
+        id: t.id,
+        name: t.name,
+        role: t.role,
+        password: t.password,
+        managed_class: t.managed_class || null
+      })));
+      if (error) console.error("Supabase error upserting teachers:", error);
+    }
+
+    if (actualTarget.majors && state.schoolMajors.length > 0) {
+      const { error } = await resilientUpsert(client, 'school_majors', state.schoolMajors.map(m => ({
+        id: m.id,
+        code: m.code,
+        name: m.name,
+        riasec_type: m.riasecType,
+        description: m.description
+      })));
+      if (error) console.error("Supabase error upserting school_majors:", error);
+    }
+  } catch (err) {
+    console.error("Supabase target sync exception:", err);
+  }
+}

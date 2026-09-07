@@ -1,0 +1,8 @@
+{
+  "name": "Psychometric CBT Assessment System",
+  "description": "Comprehensive psychological assessment and computer-based testing platform with psychometric dimensions and analytics",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

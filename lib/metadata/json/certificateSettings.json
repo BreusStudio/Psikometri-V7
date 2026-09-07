@@ -1,0 +1,32 @@
+{
+  "fields": [
+    {
+      "key": "signerName",
+      "label": "Nama Penandatangan Sertifikat",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: Dr. H. Ahmad Dahlan, M.Pd."
+    },
+    {
+      "key": "signerTitle",
+      "label": "Jabatan Penandatangan",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: Kepala Pusat Layanan Psikometri"
+    },
+    {
+      "key": "organizationName",
+      "label": "Nama Lembaga / Instansi",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: Lembaga Assessment Psikologi Indonesia"
+    },
+    {
+      "key": "certificateTitle",
+      "label": "Judul Sertifikat Hasil",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: SERTIFIKAT HASIL EVALUASI PSIKOTES"
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "columns": [
+    {
+      "key": "id",
+      "header": "Username / ID Login",
+      "sortable": true,
+      "render": {
+        "type": "text",
+        "className": "font-bold font-mono text-slate-800"
+      }
+    },
+    {
+      "key": "name",
+      "header": "Nama Pengguna",
+      "sortable": true,
+      "render": {
+        "type": "text",
+        "className": "font-semibold text-slate-700"
+      }
+    },
+    {
+      "key": "role",
+      "header": "Peran / Role",
+      "sortable": true,
+      "render": {
+        "type": "role-badge"
+      }
+    },
+    {
+      "key": "password",
+      "header": "Password",
+      "render": {
+        "type": "text",
+        "className": "font-mono text-slate-500 font-medium"
+      }
+    }
+  ],
+  "fields": [
+    {
+      "key": "id",
+      "label": "Username / ID Login",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: admin.utama / guru.budi"
+    },
+    {
+      "key": "name",
+      "label": "Nama Lengkap Pengguna",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: Budi Santoso, S.Pd."
+    },
+    {
+      "key": "password",
+      "label": "Password Login",
+      "type": "text",
+      "required": true,
+      "placeholder": "Masukkan password..."
+    },
+    {
+      "key": "role",
+      "label": "Peran Sistem (Role)",
+      "type": "select",
+      "required": true,
+      "options": [
+        { "value": "Guru", "label": "Guru" },
+        { "value": "Admin", "label": "Admin" },
+        { "value": "Superadmin", "label": "Superadmin" },
+        { "value": "Wali Kelas", "label": "Wali Kelas" },
+        { "value": "Kakomli", "label": "Kakomli (Kepala Kompetensi Keahlian)" }
+      ]
+    }
+  ],
+  "filters": [
+    {
+      "key": "roleFilter",
+      "label": "Peran (Role)",
+      "options": [
+        { "value": "Superadmin", "label": "Superadmin" },
+        { "value": "Admin", "label": "Admin" },
+        { "value": "Guru", "label": "Guru" },
+        { "value": "Wali Kelas", "label": "Wali Kelas" },
+        { "value": "Kakomli", "label": "Kakomli" }
+      ],
+      "filterField": "role",
+      "filterType": "string-match-ignore-case"
+    }
+  ]
+}

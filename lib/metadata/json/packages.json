@@ -1,0 +1,123 @@
+{
+  "columns": [
+    {
+      "key": "name",
+      "header": "Nama Paket",
+      "sortable": true,
+      "render": {
+        "type": "text",
+        "className": "font-bold text-slate-800"
+      }
+    },
+    {
+      "key": "pricePerAccount",
+      "header": "Harga per User",
+      "sortable": true,
+      "render": {
+        "type": "currency",
+        "className": "font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-100"
+      }
+    },
+    {
+      "key": "quota",
+      "header": "Kuota Base",
+      "sortable": true,
+      "render": {
+        "type": "suffix",
+        "suffix": " user",
+        "className": "font-mono text-xs text-slate-700"
+      }
+    },
+    {
+      "key": "price",
+      "header": "Total Harga Base",
+      "sortable": true,
+      "render": {
+        "type": "currency",
+        "className": "font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100"
+      }
+    },
+    {
+      "key": "popular",
+      "header": "Rekomendasi / Populer",
+      "render": {
+        "type": "boolean-badge",
+        "trueLabel": "Favorit",
+        "falseLabel": "Reguler",
+        "trueClassName": "px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200",
+        "falseClassName": "px-2 py-0.5 rounded text-[11px] font-bold text-slate-400"
+      }
+    }
+  ],
+  "fields": [
+    {
+      "key": "name",
+      "label": "Nama Paket",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: Paket Sekolah Menengah"
+    },
+    {
+      "key": "category",
+      "label": "Kategori Pembelian",
+      "type": "select",
+      "required": true,
+      "options": [
+        { "value": "personal", "label": "Personal" },
+        { "value": "school_sd", "label": "Sekolah Dasar (SD/MI)" },
+        { "value": "school_smp", "label": "Sekolah Menengah Pertama (SMP/MTS)" },
+        { "value": "school_sma", "label": "Sekolah Menengah Atas (SMA/SMK/MA)" },
+        { "value": "kuliah", "label": "Kuliah" },
+        { "value": "instansi", "label": "Instansi" },
+        { "value": "pemerintahan", "label": "Pemerintahan" },
+        { "value": "pt_cv", "label": "PT/CV" }
+      ],
+      "defaultValue": "school_sma"
+    },
+    {
+      "key": "pricePerAccount",
+      "label": "Harga Per Akun (Rp)",
+      "type": "number",
+      "required": false,
+      "placeholder": "Contoh: 15000"
+    },
+    {
+      "key": "quota",
+      "label": "Kuota Pengguna / Kupon",
+      "type": "number",
+      "required": true,
+      "placeholder": "100"
+    },
+    {
+      "key": "discountPercentage",
+      "label": "Potongan Persen (%)",
+      "type": "number",
+      "required": false,
+      "placeholder": "Contoh: 10"
+    },
+    {
+      "key": "price",
+      "label": "Harga (Rp) - Otomatis/Custom",
+      "type": "number",
+      "required": true,
+      "placeholder": "50000"
+    },
+    {
+      "key": "testTypeId",
+      "label": "Cakupan Jenis Tes (Multi Checklist)",
+      "type": "multi-checkbox",
+      "optionsSource": "testTypes",
+      "required": false
+    },
+    {
+      "key": "popular",
+      "label": "Tandai Sebagai Paket Populer",
+      "type": "select",
+      "required": false,
+      "options": [
+        { "value": "true", "label": "Ya (Unggulan)" },
+        { "value": "false", "label": "Tidak (Reguler)" }
+      ]
+    }
+  ]
+}

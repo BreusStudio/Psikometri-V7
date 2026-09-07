@@ -1,0 +1,78 @@
+{
+  "columns": [
+    {
+      "key": "id",
+      "header": "Username / ID Login",
+      "sortable": true,
+      "render": {
+        "type": "text",
+        "className": "font-bold font-mono text-slate-800"
+      }
+    },
+    {
+      "key": "name",
+      "header": "Nama Kakomli",
+      "sortable": true,
+      "render": {
+        "type": "text",
+        "className": "font-semibold text-slate-700"
+      }
+    },
+    {
+      "key": "managed_major",
+      "header": "Jurusan Diampu",
+      "sortable": true,
+      "render": {
+        "type": "badge-fallback",
+        "fallback": "-",
+        "className": "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 border border-amber-100 text-amber-700"
+      }
+    },
+    {
+      "key": "password",
+      "header": "Password",
+      "render": {
+        "type": "text",
+        "className": "font-mono text-slate-500 font-medium"
+      }
+    }
+  ],
+  "fields": [
+    {
+      "key": "id",
+      "label": "Username / ID Login Kakomli",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: kakomli.rpl"
+    },
+    {
+      "key": "name",
+      "label": "Nama Lengkap Kakomli",
+      "type": "dynamic-select-or-text",
+      "optionsSource": "eligibleUsers",
+      "required": true
+    },
+    {
+      "key": "password",
+      "label": "Password Login",
+      "type": "text",
+      "required": true,
+      "placeholder": "Masukkan password..."
+    },
+    {
+      "key": "managed_major",
+      "label": "Jurusan yang Diampu",
+      "type": "select",
+      "optionsSource": "majors",
+      "required": true
+    }
+  ],
+  "filters": [
+    {
+      "key": "majorFilter",
+      "label": "Jurusan Diampu",
+      "optionsSource": "majorsFilter",
+      "filterField": "managed_major"
+    }
+  ]
+}

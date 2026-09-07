@@ -1,0 +1,763 @@
+{
+  "superadmin": {
+    "id": "superadmin",
+    "label": "Global Superadmin",
+    "description": "Akses penuh ke semua entitas sistem.",
+    "groups": [
+      {
+        "id": "global-monitoring",
+        "label": "Ringkasan & Monitoring CBT",
+        "items": [
+          {
+            "id": "dashboard",
+            "label": "Dashboard Pusat",
+            "icon": "layers"
+          },
+          {
+            "id": "cbt-proctor",
+            "label": "CBT Server & Proctoring",
+            "icon": "monitor"
+          },
+          {
+            "id": "registrations",
+            "label": "Pendaftaran Instansi",
+            "icon": "users-blue"
+          }
+        ]
+      },
+      {
+        "id": "global-master",
+        "label": "Bank Asesmen & Peserta",
+        "items": [
+          {
+            "id": "cbt-content",
+            "label": "Pusat Konten & Master CBT",
+            "icon": "book-open"
+          },
+          {
+            "id": "students-hub",
+            "label": "Pusat Peserta & Rombel",
+            "icon": "users"
+          }
+        ]
+      },
+      {
+        "id": "global-evaluation",
+        "label": "Analisis & Evaluasi Hasil",
+        "items": [
+          {
+            "id": "reports-hub",
+            "label": "Pusat Hasil & Rekapitulasi",
+            "icon": "file-text"
+          }
+        ]
+      },
+      {
+        "id": "global-system",
+        "label": "Sistem, Lisensi & Finansial",
+        "items": [
+          {
+            "id": "licenses",
+            "label": "Klien, Lisensi & Finansial",
+            "icon": "credit-card"
+          },
+          {
+            "id": "users",
+            "label": "Manajemen Pengguna Admin",
+            "icon": "user-check"
+          },
+          {
+            "id": "system-settings",
+            "label": "Pengaturan Platform & Sistem",
+            "icon": "settings"
+          }
+        ]
+      },
+      {
+        "id": "superadmin-panduan",
+        "label": "Pusat Bantuan",
+        "items": [
+          {
+            "id": "panduan-role",
+            "label": "Panduan Penggunaan & SOP",
+            "icon": "book-open"
+          }
+        ]
+      }
+    ]
+  },
+  "personal": {
+    "id": "personal",
+    "label": "B2C / Personal (Mandiri)",
+    "description": "Manajemen pengguna individu yang mendaftar mandiri.",
+    "groups": [
+      {
+        "id": "main",
+        "label": "Menu Utama",
+        "items": [
+          {
+            "id": "dashboard",
+            "label": "Overview Pembelian",
+            "icon": "layers"
+          },
+          {
+            "id": "students",
+            "label": "Daftar Pengguna / Klien",
+            "icon": "users"
+          },
+          {
+            "id": "reports",
+            "label": "Laporan Hasil Evaluasi",
+            "icon": "file-text"
+          }
+        ]
+      },
+      {
+        "id": "academic",
+        "label": "Konten Tes",
+        "items": [
+          {
+            "id": "test-types",
+            "label": "Jenis Sub-Tes",
+            "icon": "sliders"
+          },
+          {
+            "id": "dimensions",
+            "label": "Dimensi & Kategori",
+            "icon": "sliders-horizontal"
+          }
+        ]
+      },
+      {
+        "id": "personal-panduan",
+        "label": "Pusat Bantuan",
+        "items": [
+          {
+            "id": "panduan-role",
+            "label": "Panduan Penggunaan",
+            "icon": "book-open"
+          }
+        ]
+      }
+    ]
+  },
+  "sekolah_sd": {
+    "id": "sekolah_sd",
+    "label": "Sekolah Dasar (SD)",
+    "description": "Fokus pada kelas 1-6 dan wali kelas dasar.",
+    "groups": [
+      {
+        "id": "main",
+        "label": "Dashboard",
+        "items": [
+          {
+            "id": "dashboard",
+            "label": "Dashboard SD",
+            "icon": "layers"
+          }
+        ]
+      },
+      {
+        "id": "cbt",
+        "label": "Manajemen CBT (Ref: ANBK)",
+        "items": [
+          {
+            "id": "cbt-proctor",
+            "label": "CBT Server & Proctoring",
+            "icon": "cpu"
+          },
+          {
+            "id": "students",
+            "label": "Data Peserta Didik (DNT)",
+            "icon": "users"
+          },
+          {
+            "id": "reports",
+            "label": "Berita Acara & Hasil (ANBK)",
+            "icon": "file-text"
+          }
+        ]
+      },
+      {
+        "id": "akademik",
+        "label": "Akademik & Kelas",
+        "items": [
+          {
+            "id": "classes-cohorts",
+            "label": "Rombel Kelas 1-6",
+            "icon": "graduation-cap"
+          },
+          {
+            "id": "questions",
+            "label": "Bank Soal Ujian",
+            "icon": "book-open"
+          }
+        ]
+      },
+      {
+        "id": "staff",
+        "label": "Tenaga Pendidik",
+        "items": [
+          {
+            "id": "wali-kelas",
+            "label": "Guru Kelas / Wali Kelas",
+            "icon": "users-cyan"
+          },
+          {
+            "id": "users",
+            "label": "Manajemen Akun (Proktor/Admin)",
+            "icon": "users-gear"
+          }
+        ]
+      },
+      {
+        "id": "sekolah_sd-panduan",
+        "label": "Pusat Bantuan",
+        "items": [
+          {
+            "id": "panduan-role",
+            "label": "Panduan Penggunaan",
+            "icon": "book-open"
+          }
+        ]
+      }
+    ]
+  },
+  "sekolah_smp": {
+    "id": "sekolah_smp",
+    "label": "Sekolah Menengah Pertama (SMP)",
+    "description": "Menambahkan manajemen kelas 7-9 dan spesialisasi pelajaran.",
+    "groups": [
+      {
+        "id": "main",
+        "label": "Dashboard",
+        "items": [
+          {
+            "id": "dashboard",
+            "label": "Dashboard SMP",
+            "icon": "layers"
+          }
+        ]
+      },
+      {
+        "id": "cbt",
+        "label": "Manajemen CBT (Ref: ANBK)",
+        "items": [
+          {
+            "id": "cbt-proctor",
+            "label": "CBT Server & Proctoring",
+            "icon": "cpu"
+          },
+          {
+            "id": "students",
+            "label": "Data Peserta Didik (DNT)",
+            "icon": "users"
+          },
+          {
+            "id": "rekap-kelas",
+            "label": "Rekapitulasi per Kelas",
+            "icon": "layout"
+          },
+          {
+            "id": "reports",
+            "label": "Berita Acara & Hasil",
+            "icon": "file-text"
+          }
+        ]
+      },
+      {
+        "id": "akademik",
+        "label": "Akademik & Kelas",
+        "items": [
+          {
+            "id": "classes-cohorts",
+            "label": "Rombel Kelas 7-9",
+            "icon": "graduation-cap"
+          },
+          {
+            "id": "questions",
+            "label": "Bank Soal Ujian",
+            "icon": "book-open"
+          },
+          {
+            "id": "test-types",
+            "label": "Jenis Sub-Tes",
+            "icon": "sliders"
+          }
+        ]
+      },
+      {
+        "id": "staff",
+        "label": "Tenaga Pendidik",
+        "items": [
+          {
+            "id": "wali-kelas",
+            "label": "Wali Kelas & Guru BK",
+            "icon": "users-cyan"
+          },
+          {
+            "id": "users",
+            "label": "Manajemen Akun (Proktor/Admin)",
+            "icon": "users-gear"
+          }
+        ]
+      },
+      {
+        "id": "sekolah_smp-panduan",
+        "label": "Pusat Bantuan",
+        "items": [
+          {
+            "id": "panduan-role",
+            "label": "Panduan Penggunaan",
+            "icon": "book-open"
+          }
+        ]
+      }
+    ]
+  },
+  "sekolah_sma": {
+    "id": "sekolah_sma",
+    "label": "Sekolah Menengah Atas (SMA)",
+    "description": "Menambahkan peminatan/jurusan (MIPA, IPS, dll).",
+    "groups": [
+      {
+        "id": "main",
+        "label": "Dashboard",
+        "items": [
+          {
+            "id": "dashboard",
+            "label": "Dashboard SMA",
+            "icon": "layers"
+          }
+        ]
+      },
+      {
+        "id": "cbt",
+        "label": "Manajemen CBT (Ref: ANBK)",
+        "items": [
+          {
+            "id": "cbt-proctor",
+            "label": "CBT Server & Proctoring",
+            "icon": "cpu"
+          },
+          {
+            "id": "students",
+            "label": "Data Peserta Didik (DNT)",
+            "icon": "users"
+          },
+          {
+            "id": "rekap-kelas",
+            "label": "Rekapitulasi per Kelas",
+            "icon": "layout"
+          },
+          {
+            "id": "rekap-jurusan",
+            "label": "Rekapitulasi Peminatan",
+            "icon": "layout-grid"
+          },
+          {
+            "id": "reports",
+            "label": "Berita Acara & Hasil",
+            "icon": "file-text"
+          }
+        ]
+      },
+      {
+        "id": "akademik",
+        "label": "Akademik & Peminatan",
+        "items": [
+          {
+            "id": "majors",
+            "label": "Peminatan (MIPA/IPS/Bahasa)",
+            "icon": "book"
+          },
+          {
+            "id": "classes-cohorts",
+            "label": "Rombel Kelas 10-12",
+            "icon": "graduation-cap"
+          },
+          {
+            "id": "questions",
+            "label": "Bank Soal Ujian",
+            "icon": "book-open"
+          },
+          {
+            "id": "test-types",
+            "label": "Jenis Sub-Tes",
+            "icon": "sliders"
+          },
+          {
+            "id": "dimensions",
+            "label": "Dimensi & Kategori",
+            "icon": "sliders-horizontal"
+          }
+        ]
+      },
+      {
+        "id": "staff",
+        "label": "Tenaga Pendidik",
+        "items": [
+          {
+            "id": "wali-kelas",
+            "label": "Wali Kelas & Guru BK",
+            "icon": "users-cyan"
+          },
+          {
+            "id": "users",
+            "label": "Manajemen Akun (Proktor/Admin)",
+            "icon": "users-gear"
+          },
+          {
+            "id": "certificate-settings",
+            "label": "Desain Sertifikat",
+            "icon": "award"
+          }
+        ]
+      },
+      {
+        "id": "sekolah_sma-panduan",
+        "label": "Pusat Bantuan",
+        "items": [
+          {
+            "id": "panduan-role",
+            "label": "Panduan Penggunaan",
+            "icon": "book-open"
+          }
+        ]
+      }
+    ]
+  },
+  "sekolah_smk": {
+    "id": "sekolah_smk",
+    "label": "Sekolah Menengah Kejuruan (SMK)",
+    "description": "Struktur paling kompleks dengan Program Keahlian, Konsentrasi, dan Kakomli.",
+    "groups": [
+      {
+        "id": "main",
+        "label": "Dashboard",
+        "items": [
+          {
+            "id": "dashboard",
+            "label": "Dashboard SMK",
+            "icon": "layers"
+          }
+        ]
+      },
+      {
+        "id": "cbt",
+        "label": "Manajemen CBT (Ref: ANBK/UKK)",
+        "items": [
+          {
+            "id": "cbt-proctor",
+            "label": "CBT Server & Proctoring",
+            "icon": "cpu"
+          },
+          {
+            "id": "students",
+            "label": "Data Peserta (DNT & UKK)",
+            "icon": "users"
+          },
+          {
+            "id": "rekap-kelas",
+            "label": "Rekapitulasi per Kelas",
+            "icon": "layout"
+          },
+          {
+            "id": "rekap-jurusan",
+            "label": "Rekap Konsentrasi Keahlian",
+            "icon": "layout-grid"
+          },
+          {
+            "id": "reports",
+            "label": "Berita Acara & Hasil",
+            "icon": "file-text"
+          }
+        ]
+      },
+      {
+        "id": "akademik",
+        "label": "Vokasi & Kelas",
+        "items": [
+          {
+            "id": "majors",
+            "label": "Konsentrasi Keahlian (Jurusan)",
+            "icon": "briefcase"
+          },
+          {
+            "id": "classes-cohorts",
+            "label": "Rombel Kelas 10-12",
+            "icon": "graduation-cap"
+          },
+          {
+            "id": "questions",
+            "label": "Bank Soal Ujian",
+            "icon": "book-open"
+          },
+          {
+            "id": "test-types",
+            "label": "Jenis Sub-Tes",
+            "icon": "sliders"
+          },
+          {
+            "id": "dimensions",
+            "label": "Dimensi & Kategori",
+            "icon": "sliders-horizontal"
+          }
+        ]
+      },
+      {
+        "id": "staff",
+        "label": "Pendidik & Kepala Program",
+        "items": [
+          {
+            "id": "kakomli",
+            "label": "Kepala Program (Kakomli)",
+            "icon": "users-blue"
+          },
+          {
+            "id": "wali-kelas",
+            "label": "Wali Kelas & Guru BK",
+            "icon": "users-cyan"
+          },
+          {
+            "id": "users",
+            "label": "Manajemen Akun (Proktor/Admin)",
+            "icon": "users-gear"
+          },
+          {
+            "id": "certificate-settings",
+            "label": "Desain Sertifikat",
+            "icon": "award"
+          }
+        ]
+      },
+      {
+        "id": "sekolah_smk-panduan",
+        "label": "Pusat Bantuan",
+        "items": [
+          {
+            "id": "panduan-role",
+            "label": "Panduan Penggunaan",
+            "icon": "book-open"
+          }
+        ]
+      }
+    ]
+  },
+  "instansi_pemerintah": {
+    "id": "instansi_pemerintah",
+    "label": "Instansi Pemerintahan",
+    "description": "Pengelolaan asesmen ASN / CPNS / Kedinasan.",
+    "groups": [
+      {
+        "id": "main",
+        "label": "Dashboard",
+        "items": [
+          {
+            "id": "dashboard",
+            "label": "Overview Instansi",
+            "icon": "layers"
+          },
+          {
+            "id": "cbt-proctor",
+            "label": "CBT Server & Proctoring",
+            "icon": "cpu"
+          }
+        ]
+      },
+      {
+        "id": "peserta",
+        "label": "Manajemen Peserta Asesmen",
+        "items": [
+          {
+            "id": "classes-cohorts",
+            "label": "Kelompok/Gelombang",
+            "icon": "users"
+          },
+          {
+            "id": "students",
+            "label": "Data ASN / Peserta",
+            "icon": "users"
+          },
+          {
+            "id": "rekap-kelas",
+            "label": "Rekap Kelompok",
+            "icon": "layout"
+          }
+        ]
+      },
+      {
+        "id": "akademik",
+        "label": "Bank Instrumen",
+        "items": [
+          {
+            "id": "questions",
+            "label": "Bank Soal Ujian",
+            "icon": "book-open"
+          },
+          {
+            "id": "test-types",
+            "label": "Jenis Sub-Tes",
+            "icon": "sliders"
+          },
+          {
+            "id": "dimensions",
+            "label": "Dimensi & Kategori",
+            "icon": "sliders-horizontal"
+          }
+        ]
+      },
+      {
+        "id": "reports",
+        "label": "Pelaporan Terpusat",
+        "items": [
+          {
+            "id": "reports",
+            "label": "Hasil Asesmen",
+            "icon": "file-text"
+          },
+          {
+            "id": "certificate-settings",
+            "label": "Desain Sertifikat",
+            "icon": "award"
+          }
+        ]
+      },
+      {
+        "id": "staff",
+        "label": "Administrator",
+        "items": [
+          {
+            "id": "users",
+            "label": "Manajemen Akun (Proktor/Admin)",
+            "icon": "users-gear"
+          },
+          {
+            "id": "settings",
+            "label": "Pengaturan Institusi",
+            "icon": "settings"
+          }
+        ]
+      },
+      {
+        "id": "instansi_pemerintah-panduan",
+        "label": "Pusat Bantuan",
+        "items": [
+          {
+            "id": "panduan-role",
+            "label": "Panduan Penggunaan",
+            "icon": "book-open"
+          }
+        ]
+      }
+    ]
+  },
+  "perusahaan": {
+    "id": "perusahaan",
+    "label": "Perusahaan (Korporat)",
+    "description": "Manajemen asesmen rekrutmen atau evaluasi kinerja karyawan.",
+    "groups": [
+      {
+        "id": "main",
+        "label": "Dashboard HRD",
+        "items": [
+          {
+            "id": "dashboard",
+            "label": "Overview Rekrutmen",
+            "icon": "layers"
+          },
+          {
+            "id": "cbt-proctor",
+            "label": "CBT Server & Proctoring",
+            "icon": "cpu"
+          }
+        ]
+      },
+      {
+        "id": "peserta",
+        "label": "Kandidat & Karyawan",
+        "items": [
+          {
+            "id": "majors",
+            "label": "Departemen / Posisi",
+            "icon": "briefcase"
+          },
+          {
+            "id": "classes-cohorts",
+            "label": "Batch Rekrutmen",
+            "icon": "users"
+          },
+          {
+            "id": "students",
+            "label": "Data Kandidat",
+            "icon": "users"
+          },
+          {
+            "id": "rekap-jurusan",
+            "label": "Rekap Departemen",
+            "icon": "layout-grid"
+          }
+        ]
+      },
+      {
+        "id": "akademik",
+        "label": "Bank Instrumen",
+        "items": [
+          {
+            "id": "questions",
+            "label": "Bank Soal Ujian",
+            "icon": "book-open"
+          },
+          {
+            "id": "test-types",
+            "label": "Jenis Sub-Tes",
+            "icon": "sliders"
+          },
+          {
+            "id": "dimensions",
+            "label": "Dimensi & Kategori",
+            "icon": "sliders-horizontal"
+          }
+        ]
+      },
+      {
+        "id": "reports",
+        "label": "Laporan & Keputusan",
+        "items": [
+          {
+            "id": "reports",
+            "label": "Hasil Evaluasi",
+            "icon": "file-text"
+          }
+        ]
+      },
+      {
+        "id": "staff",
+        "label": "HR Admin & Interviewer",
+        "items": [
+          {
+            "id": "users",
+            "label": "Manajemen Akun (Proktor/Admin)",
+            "icon": "users-gear"
+          },
+          {
+            "id": "settings",
+            "label": "Pengaturan Institusi",
+            "icon": "settings"
+          }
+        ]
+      },
+      {
+        "id": "perusahaan-panduan",
+        "label": "Pusat Bantuan",
+        "items": [
+          {
+            "id": "panduan-role",
+            "label": "Panduan Penggunaan",
+            "icon": "book-open"
+          }
+        ]
+      }
+    ]
+  }
+}

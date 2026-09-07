@@ -1,0 +1,78 @@
+{
+  "columns": [
+    {
+      "key": "id",
+      "header": "Username / ID Login",
+      "sortable": true,
+      "render": {
+        "type": "text",
+        "className": "font-bold font-mono text-slate-800"
+      }
+    },
+    {
+      "key": "name",
+      "header": "Nama Lengkap",
+      "sortable": true,
+      "render": {
+        "type": "text",
+        "className": "font-semibold text-slate-700"
+      }
+    },
+    {
+      "key": "managed_class",
+      "header": "Kelas Diampu",
+      "sortable": true,
+      "render": {
+        "type": "badge-fallback",
+        "fallback": "-",
+        "className": "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-50 border border-cyan-100 text-cyan-700"
+      }
+    },
+    {
+      "key": "password",
+      "header": "Password",
+      "render": {
+        "type": "text",
+        "className": "font-mono text-slate-500 font-medium"
+      }
+    }
+  ],
+  "fields": [
+    {
+      "key": "id",
+      "label": "Username / ID Login",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: wali.budi"
+    },
+    {
+      "key": "name",
+      "label": "Nama Lengkap Guru",
+      "type": "dynamic-select-or-text",
+      "optionsSource": "eligibleUsers",
+      "required": true
+    },
+    {
+      "key": "password",
+      "label": "Password Login",
+      "type": "text",
+      "required": true,
+      "placeholder": "Masukkan password..."
+    },
+    {
+      "key": "managed_class",
+      "label": "Kelas yang Diampu",
+      "type": "select",
+      "optionsSource": "classes",
+      "required": true
+    }
+  ],
+  "filters": [
+    {
+      "key": "classFilter",
+      "label": "Kelas Diampu",
+      "optionsSource": "classesFilter",
+      "filterField": "managed_class"
+    }
+  ]
+}

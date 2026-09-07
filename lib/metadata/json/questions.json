@@ -1,0 +1,240 @@
+{
+  "columns": [
+    {
+      "key": "id",
+      "header": "No / ID",
+      "sortable": true,
+      "render": {
+        "type": "prefix",
+        "prefix": "#",
+        "className": "font-mono text-xs font-bold text-slate-800"
+      }
+    },
+    {
+      "key": "imageUrl",
+      "header": "Gambar",
+      "render": {
+        "type": "image",
+        "fallback": "Tidak ada",
+        "className": "w-10 h-10 object-cover rounded-lg border border-slate-200 shadow-xs",
+        "fallbackClassName": "text-[10px] text-slate-400 font-medium italic"
+      }
+    },
+    {
+      "key": "text",
+      "header": "Pernyataan / Teks Soal",
+      "sortable": true,
+      "priority": "high",
+      "fullWidth": true,
+      "render": {
+        "type": "text",
+        "className": "text-xs text-slate-800 font-semibold leading-relaxed break-words"
+      }
+    },
+    {
+      "key": "choices",
+      "header": "Daftar Opsi & Skor",
+      "fullWidth": true,
+      "render": {
+        "type": "question-choices",
+        "fallback": "Belum ada opsi jawaban!",
+        "fallbackClassName": "text-[11px] text-rose-600 italic font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100"
+      }
+    },
+    {
+      "key": "dimension",
+      "header": "Dimensi Evaluasi",
+      "sortable": true,
+      "priority": "medium",
+      "render": {
+        "type": "badge",
+        "className": "px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 border border-indigo-100 text-indigo-700"
+      }
+    },
+    {
+      "key": "testType",
+      "header": "Jenis Tes",
+      "sortable": true,
+      "priority": "high",
+      "render": {
+        "type": "text-fallback",
+        "fallback": "Pilihan Karir",
+        "className": "text-xs text-slate-600 font-medium"
+      }
+    },
+    {
+      "key": "packageId",
+      "header": "Paket",
+      "sortable": true,
+      "priority": "medium",
+      "render": {
+        "type": "badge",
+        "fallback": "Umum",
+        "className": "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 border border-slate-200 text-slate-700"
+      }
+    }
+  ],
+  "fields": [
+    {
+      "key": "text",
+      "label": "Teks Pernyataan Soal",
+      "type": "textarea",
+      "required": true,
+      "placeholder": "Tuliskan pernyataan instrumen psikotes...",
+      "colSpan": "full"
+    },
+    {
+      "key": "dimension",
+      "label": "Dimensi Evaluasi Utama",
+      "type": "dynamic-select-or-text",
+      "optionsSource": "dimensions",
+      "required": true,
+      "colSpan": "half"
+    },
+    {
+      "key": "testType",
+      "label": "Jenis Tes",
+      "type": "dynamic-select-or-text",
+      "optionsSource": "testTypes",
+      "required": true,
+      "colSpan": "half"
+    },
+    {
+      "key": "educationLevel",
+      "label": "Tingkat Pendidikan Target",
+      "type": "select",
+      "required": false,
+      "colSpan": "half",
+      "options": [
+        { "value": "SD", "label": "Sekolah Dasar (SD/MI)" },
+        { "value": "SMP", "label": "Sekolah Menengah Pertama (SMP/MTs)" },
+        { "value": "SMA", "label": "Sekolah Menengah Atas/Kejuruan (SMA/SMK)" },
+        { "value": "PERGURUAN_TINGGI", "label": "Perguruan Tinggi / Universitas" },
+        { "value": "PROFESIONAL", "label": "Profesional / Executive B2B" },
+        { "value": "ALL", "label": "Semua Tingkatan (Global)" }
+      ]
+    },
+    {
+      "key": "difficultyLevel",
+      "label": "Tingkat Kesulitan Psikometri",
+      "type": "select",
+      "required": false,
+      "colSpan": "half",
+      "options": [
+        { "value": "sangat_mudah", "label": "Sangat Mudah (p: 0.81 - 1.00)" },
+        { "value": "mudah", "label": "Mudah (p: 0.61 - 0.80)" },
+        { "value": "sedang", "label": "Sedang (p: 0.41 - 0.60)" },
+        { "value": "sulit", "label": "Sulit (p: 0.21 - 0.40)" },
+        { "value": "sangat_sulit", "label": "Sangat Sulit (p: 0.00 - 0.20)" }
+      ]
+    },
+    {
+      "key": "scoringType",
+      "label": "Skema Penilaian Butir Soal",
+      "type": "select",
+      "required": false,
+      "colSpan": "half",
+      "options": [
+        { "value": "weighted", "label": "Bobot Bertingkat / Khusus Tiap Opsi" },
+        { "value": "binary", "label": "Kunci Jawaban Tunggal (Benar/Salah)" },
+        { "value": "likert", "label": "Skala Likert Bertingkat (1 - 5)" }
+      ]
+    },
+    {
+      "key": "isUnfavorable",
+      "label": "Arah Butir (Favorable vs Unfavorable)",
+      "type": "select",
+      "required": false,
+      "colSpan": "half",
+      "options": [
+        { "value": "false", "label": "Favorable (Pernyataan Positif - Skor Normal)" },
+        { "value": "true", "label": "Unfavorable (Pernyataan Negatif - Reverse Scoring Otomatis)" }
+      ]
+    },
+    {
+      "key": "imageUrl",
+      "label": "Gambar Pendukung / Ilustrasi Soal",
+      "type": "image",
+      "required": false,
+      "colSpan": "full"
+    },
+    {
+      "key": "opsiA",
+      "label": "Opsi Jawaban A (Pertama)",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: Sangat Setuju / Sangat Tertarik / Jawaban Benar IQ",
+      "colSpan": "2/3"
+    },
+    {
+      "key": "skorA",
+      "label": "Skor Opsi A",
+      "type": "number",
+      "required": true,
+      "placeholder": "Contoh: 5 atau 15",
+      "colSpan": "1/3"
+    },
+    {
+      "key": "opsiB",
+      "label": "Opsi Jawaban B (Kedua)",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: Setuju / Cukup Tertarik / Jawaban Salah IQ",
+      "colSpan": "2/3"
+    },
+    {
+      "key": "skorB",
+      "label": "Skor Opsi B",
+      "type": "number",
+      "required": true,
+      "placeholder": "Contoh: 4 atau 0",
+      "colSpan": "1/3"
+    },
+    {
+      "key": "opsiC",
+      "label": "Opsi Jawaban C (Ketiga - Opsional)",
+      "type": "text",
+      "required": false,
+      "placeholder": "Contoh: Tidak Setuju / Kurang Tertarik",
+      "colSpan": "2/3"
+    },
+    {
+      "key": "skorC",
+      "label": "Skor Opsi C (Opsional)",
+      "type": "number",
+      "required": false,
+      "placeholder": "Contoh: 2",
+      "colSpan": "1/3"
+    },
+    {
+      "key": "opsiD",
+      "label": "Opsi Jawaban D (Keempat - Opsional)",
+      "type": "text",
+      "required": false,
+      "placeholder": "Contoh: Sangat Tidak Setuju / Tidak Tertarik",
+      "colSpan": "2/3"
+    },
+    {
+      "key": "skorD",
+      "label": "Skor Opsi D (Opsional)",
+      "type": "number",
+      "required": false,
+      "placeholder": "Contoh: 1",
+      "colSpan": "1/3"
+    }
+  ],
+  "filters": [
+    {
+      "key": "dimensionFilter",
+      "label": "Dimensi Evaluasi",
+      "optionsSource": "dimensionsFilter",
+      "filterField": "dimension"
+    },
+    {
+      "key": "testTypeFilter",
+      "label": "Jenis Tes",
+      "optionsSource": "testTypesFilter",
+      "filterField": "testType"
+    }
+  ]
+}

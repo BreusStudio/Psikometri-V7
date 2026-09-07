@@ -1,0 +1,77 @@
+{
+  "columns": [
+    {
+      "key": "code",
+      "header": "Kode Jurusan",
+      "sortable": true,
+      "render": {
+        "type": "badge",
+        "className": "font-bold font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-100"
+      }
+    },
+    {
+      "key": "name",
+      "header": "Nama Jurusan",
+      "sortable": true,
+      "render": {
+        "type": "text",
+        "className": "font-semibold text-slate-800"
+      }
+    },
+    {
+      "key": "applicableContexts",
+      "header": "Konteks Instansi",
+      "render": {
+        "type": "context-badges"
+      }
+    },
+    {
+      "key": "description",
+      "header": "Deskripsi Singkat",
+      "render": {
+        "type": "text-fallback",
+        "fallback": "-",
+        "className": "text-slate-500 text-xs line-clamp-1"
+      }
+    }
+  ],
+  "fields": [
+    {
+      "key": "code",
+      "label": "Kode Jurusan",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: RPL, TKJ, AKL"
+    },
+    {
+      "key": "name",
+      "label": "Nama Lengkap Jurusan",
+      "type": "text",
+      "required": true,
+      "placeholder": "Contoh: Rekayasa Perangkat Lunak"
+    },
+    {
+      "key": "applicableContexts",
+      "label": "Konteks Instansi Berlaku",
+      "type": "multi-checkbox",
+      "colSpan": "full",
+      "options": [
+        { "value": "sekolah_sd", "label": "Sekolah Dasar (SD/MI)" },
+        { "value": "sekolah_smp", "label": "Sekolah Menengah Pertama (SMP/MTs)" },
+        { "value": "sekolah_sma", "label": "Sekolah Menengah Atas (SMA/MA)" },
+        { "value": "sekolah_smk", "label": "Sekolah Menengah Kejuruan (SMK)" },
+        { "value": "perusahaan", "label": "Perusahaan / Corporate" },
+        { "value": "instansi_pemerintah", "label": "Instansi Pemerintah / Kedinasan" },
+        { "value": "personal", "label": "Personal / Mandiri" }
+      ],
+      "required": false
+    },
+    {
+      "key": "description",
+      "label": "Deskripsi Jurusan",
+      "type": "textarea",
+      "required": false,
+      "placeholder": "Keterangan kompetensi / profil jurusan..."
+    }
+  ]
+}
