@@ -22,6 +22,9 @@ import {
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import DbTelemetryMonitor from './dbsync/DbTelemetryMonitor';
+import { DbSyncResetModal } from './dbsync/DbSyncResetModal';
+import { DbSyncSqlScriptModal } from './dbsync/DbSyncSqlScriptModal';
+import { DbSchemaMismatchBanner } from './dbsync/DbSchemaMismatchBanner';
 
 interface DbSyncTabProps {
   store: any; // PsychometricStore
@@ -578,6 +581,9 @@ export default function DbSyncTab({
         </div>
       </div>
 
+      {/* SCHEMA MISMATCH & DIAGNOSTIC BANNER */}
+      <DbSchemaMismatchBanner onTriggerResync={checkTableHealth} />
+
       {/* REALTIME DATABASE TELEMETRY MONITOR */}
       <DbTelemetryMonitor
         dbLatency={dbLatency}
@@ -991,69 +997,18 @@ export default function DbSyncTab({
       )}
 
       {/* HIGHEST LEVEL RESET ALL MODAL */}
-      {resetAllModalOpen && (
-        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl border border-rose-200 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-5 animate-in zoom-in-95 duration-200 text-slate-800">
-            <div className="flex items-start gap-3.5">
-              <div className="p-2.5 bg-rose-100 text-rose-700 rounded-xl animate-bounce">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-black uppercase tracking-wider text-rose-800">
-                  ⚠️ Peringatan Wipe Aplikasi Total
-                </h3>
-                <p className="text-xs text-slate-500 font-semibold leading-relaxed mt-1">
-                  Menghapus SEMUA tabel dinamis (Siswa, Ujian, Kelas, Angkatan, Voucher, Pembelian, Afiliasi, Guru BK/BK/Waka/Kepsek) dan menyetel ulang bank soal ke preset default.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2.5">
-              <label className="text-[10px] font-black uppercase text-rose-800 tracking-wider block">
-                Ketik &quot;RESET&quot; untuk melanjutkan:
-              </label>
-              <input
-                type="text"
-                value={resetInput}
-                onChange={(e) => {
-                  setResetInput(e.target.value);
-                  setResetError('');
-                }}
-                placeholder="Ketik RESET"
-                className="w-full text-xs px-3.5 py-2.5 bg-rose-50/30 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 text-slate-800 font-bold uppercase"
-              />
-              {resetError && (
-                <p className="text-[10px] text-rose-600 font-bold">{resetError}</p>
-              )}
-            </div>
-
-            <div className="flex gap-2.5">
-              <button
-                type="button"
-                disabled={isProcessingClear}
-                onClick={() => setResetAllModalOpen(false)}
-                className="flex-1 py-2.5 border border-slate-250 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
-              >
-                Batalkan
-              </button>
-              <button
-                type="button"
-                disabled={isProcessingClear}
-                onClick={handleExecuteResetAll}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow cursor-pointer"
-              >
-                {isProcessingClear ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin animate-infinite" /> Memproses...
-                  </>
-                ) : (
-                  'Wipe Total Aplikasi'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DbSyncResetModal
+        isOpen={resetAllModalOpen}
+        resetInput={resetInput}
+        resetError={resetError}
+        isProcessing={isProcessingClear}
+        onClose={() => setResetAllModalOpen(false)}
+        onInputChange={(val) => {
+          setResetInput(val);
+          setResetError('');
+        }}
+        onConfirmReset={handleExecuteResetAll}
+      />
 
       {/* STATE TOAST NOTIFICATION */}
       {toastMessage && (

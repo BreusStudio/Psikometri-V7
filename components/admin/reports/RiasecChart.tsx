@@ -18,18 +18,18 @@ export default function RiasecChart({ scores }: RiasecChartProps) {
   ];
 
   return (
-    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-400 text-left animate-fade-in">
-      <div className="space-y-2">
+    <div className="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-300/80 text-left animate-fade-in w-full overflow-hidden">
+      <div className="space-y-2.5">
         {categories.map((cat) => {
           const val = scores[cat.key] || 0;
           const pct = Math.max(5, (val / maxVal) * 100);
           return (
             <div key={cat.key} className="space-y-1">
-              <div className="flex justify-between text-[11px] font-bold text-slate-700 uppercase tracking-wide">
-                <span>{cat.label}</span>
-                <span className="font-mono">{val} / 10</span>
+              <div className="flex flex-wrap items-center justify-between text-[10px] sm:text-[11px] font-bold text-slate-700 uppercase tracking-wide gap-1">
+                <span className="truncate max-w-[180px] sm:max-w-none">{cat.label}</span>
+                <span className="font-mono text-slate-800 shrink-0">{val} / 10</span>
               </div>
-              <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden shadow-inner">
                 <div 
                   className="h-full rounded-full transition-all duration-700" 
                   style={{ width: `${pct}%`, backgroundColor: cat.color }}

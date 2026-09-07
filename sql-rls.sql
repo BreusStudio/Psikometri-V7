@@ -177,9 +177,15 @@ CREATE TABLE IF NOT EXISTS questions (
     id TEXT PRIMARY KEY,
     test_type TEXT,
     dimension TEXT,
+    category TEXT,
     text TEXT,
     choices JSONB,
-    image_url TEXT
+    answers JSONB,
+    rubric JSONB,
+    is_validated BOOLEAN DEFAULT false,
+    weight INTEGER DEFAULT 1,
+    image_url TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 7. Tabel School Majors
@@ -305,8 +311,14 @@ ALTER TABLE vouchers ADD COLUMN IF NOT EXISTS admin_password TEXT;
 
 -- Patch Kolom questions
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS is_validated BOOLEAN DEFAULT false;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS answers JSONB;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS rubric JSONB;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS category TEXT;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS weight INTEGER DEFAULT 1;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
--- 10. Nonaktifkan Row Level Security (RLS) pada Seluruh Tabel
+-- 10. Nonaktifkan Row Level Security (RLS) atau Izinkan Anon Akses pada Seluruh Tabel
 ALTER TABLE IF EXISTS students DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS questions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS dimensions DISABLE ROW LEVEL SECURITY;
@@ -316,6 +328,9 @@ ALTER TABLE IF EXISTS teachers DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS registered_classes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS registered_cohorts DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS student_answers DISABLE ROW LEVEL SECURITY;
+
+-- Reload Cache PostgREST
+NOTIFY pgrst, 'reload schema';
 
 -- 11. Inisialisasi Storage Bucket untuk Gambar Soal (psychometric-assets)
 INSERT INTO storage.buckets (id, name, public)

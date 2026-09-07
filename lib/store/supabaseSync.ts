@@ -7,6 +7,29 @@ import { Student, Question, Dimension, Teacher, SchoolMajor } from '../types';
 import { markAnswerSynced } from '../indexedDB';
 import { syncManager } from '@/lib/api';
 
+export function mapQuestionToDbRow(q: Question) {
+  const isValidated = Boolean(
+    (q as any).is_validated || 
+    (q as any).isValidated || 
+    q.verificationStatus === 'VERIFIED'
+  );
+
+  return {
+    id: String(q.id).trim(),
+    test_type: q.testType,
+    dimension: q.dimension,
+    category: (q as any).category || q.dimension,
+    text: q.text,
+    choices: Array.isArray(q.choices) ? q.choices : [],
+    answers: (q as any).answers || q.optionScores || null,
+    rubric: (q as any).rubric || null,
+    is_validated: isValidated,
+    weight: (q as any).weight || 1,
+    image_url: q.imageUrl || null,
+    updated_at: new Date().toISOString()
+  };
+}
+
 export function mapStudentToDbRow(s: Student) {
   const classGroup = s.classGroup || s.class_name || 'X-1';
   const rawAngkatan = typeof s.angkatan === 'number' ? s.angkatan : (typeof s.cohort === 'number' ? Number(s.cohort) : new Date().getFullYear());
@@ -157,6 +180,55 @@ export function setupRealtimeSubscriptions(
           const name = String(payload.old?.name || payload.old?.id).trim().toUpperCase();
           if (name) {
             state.registeredClasses = state.registeredClasses.filter(c => c !== name);
+          }
+        }
+        notify();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'questions' },
+      async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const updatedQ = mapDatabaseRowToQuestion(payload.new);
+          const idx = state.questions.findIndex(q => q.id === updatedQ.id);
+          if (idx >= 0) {
+            state.questions[idx] = updatedQ;
+          } else {
+            state.questions.push(updatedQ);
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = payload.old?.id;
+          if (deletedId) {
+            state.questions = state.questions.filter(q => q.id !== deletedId);
+          }
+        }
+        notify();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'teachers' },
+      async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const t = payload.new;
+          const updatedT = {
+            id: t.id,
+            name: t.name,
+            role: t.role,
+            password: t.password,
+            managed_class: t.managed_class || undefined
+          };
+          const idx = state.teachers.findIndex(x => x.id === updatedT.id);
+          if (idx >= 0) {
+            state.teachers[idx] = updatedT;
+          } else {
+            state.teachers.push(updatedT);
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = payload.old?.id;
+          if (deletedId) {
+            state.teachers = state.teachers.filter(x => x.id !== deletedId);
           }
         }
         notify();
@@ -681,14 +753,7 @@ export async function saveToSupabaseTarget(
       const { error } = await client.from('questions').delete().eq('id', actualTarget.deleteQuestionId);
       if (error) console.error("Supabase error deleting question:", error);
     } else if (actualTarget.questions && state.questions.length > 0) {
-      const { error } = await resilientUpsert(client, 'questions', state.questions.map(q => ({
-        id: q.id,
-        test_type: q.testType,
-        dimension: q.dimension,
-        text: q.text,
-        choices: q.choices,
-        image_url: q.imageUrl || null
-      })));
+      const { error } = await resilientUpsert(client, 'questions', state.questions.map(q => mapQuestionToDbRow(q)));
       if (error) console.error("Supabase error upserting questions:", error);
     }
 

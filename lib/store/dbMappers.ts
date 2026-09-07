@@ -74,6 +74,13 @@ export function mapDatabaseRowToQuestion(q: any): Question {
   const rawId = String(q.id || '');
   const derivedPackageId = q.package_id || q.packageId || (rawId.startsWith('Q-B1') ? 'PKG-VOKASI-A' : rawId.startsWith('Q-B2') ? 'PKG-VOKASI-B' : undefined);
 
+  const isValidated = Boolean(
+    q.is_validated === true || 
+    q.isValidated === true || 
+    q.verification_status === 'VERIFIED' || 
+    q.verificationStatus === 'VERIFIED'
+  );
+
   return {
     id: q.id,
     testType: mappedType as any,
@@ -87,7 +94,7 @@ export function mapDatabaseRowToQuestion(q: any): Question {
     difficultyIndex: typeof q.difficulty_index === 'number' ? q.difficulty_index : q.difficultyIndex,
     discriminationIndex: typeof q.discrimination_index === 'number' ? q.discrimination_index : q.discriminationIndex,
     educationLevel: q.education_level || q.educationLevel,
-    verificationStatus: q.verification_status || q.verificationStatus,
+    verificationStatus: isValidated ? 'VERIFIED' : (q.verification_status || q.verificationStatus || 'DRAFT'),
     verifiedBy: q.verified_by || q.verifiedBy,
     verifiedAt: q.verified_at || q.verifiedAt,
     aiClassification: q.ai_classification || q.aiClassification,
@@ -95,7 +102,7 @@ export function mapDatabaseRowToQuestion(q: any): Question {
     scoringType: q.scoring_type || q.scoringType,
     isUnfavorable: q.is_unfavorable !== undefined ? q.is_unfavorable : q.isUnfavorable,
     correctChoiceId: q.correct_choice_id || q.correctChoiceId,
-    optionScores: q.option_scores || q.optionScores
+    optionScores: q.option_scores || q.optionScores || q.answers || q.rubric
   };
 }
 
