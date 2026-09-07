@@ -1,7 +1,7 @@
 import { Student, Question, Dimension, TestSettings } from '../types';
 import { CalculatedPsychometrics } from './types';
 import { aggregateDimensionRawScores } from './itemScoreEngine';
-import { calculateZScore, zToWechslerIQ, zToTScore, zToPercentileRank } from './normCalculator';
+import { calculateZScore, zToPercentileRank, calculateCalibratedIq, calculateCalibratedEq } from './normCalculator';
 import { evaluateTestValidity } from './validityEngine';
 
 /**
@@ -48,21 +48,10 @@ export function evaluateStudentPsychometrics(
     return acc + maxVal;
   }, 0) || (Math.max(baselineEqQuestions.length, 1) * 5);
 
-  // Population Mean and Standard Deviation benchmarks
-  // IQ Population Norm Mean = 50% of max raw, SD = 20% of max raw
-  const iqMean = maxIqRaw * 0.5;
-  const iqSd = Math.max(maxIqRaw * 0.2, 1);
-
-  // EQ Population Norm Mean = 60% of score range, SD = 18% of score range
-  const eqRange = Math.max(maxEqRaw - minEqRaw, 1);
-  const eqMean = minEqRaw + (eqRange * 0.60);
-  const eqSd = Math.max(eqRange * 0.18, 1);
-
-  // 3. Compute Standardized IQ and EQ Scores
+  // 3. Compute Standardized Real IQ and EQ Scores based on Norm Calibration
   let finalIqScore: number;
   if (answeredIqQuestions.length > 0) {
-    const iqZ = calculateZScore(rawIq, iqMean, iqSd);
-    finalIqScore = zToWechslerIQ(iqZ);
+    finalIqScore = calculateCalibratedIq(rawIq, maxIqRaw, settings?.scoringCalibration);
   } else if (student.iqScore !== null && student.iqScore !== undefined && student.iqScore > 0) {
     finalIqScore = student.iqScore;
   } else {
@@ -71,8 +60,7 @@ export function evaluateStudentPsychometrics(
 
   let finalEqScore: number;
   if (answeredEqQuestions.length > 0) {
-    const eqZ = calculateZScore(rawEq, eqMean, eqSd);
-    finalEqScore = zToTScore(eqZ);
+    finalEqScore = calculateCalibratedEq(rawEq, minEqRaw, maxEqRaw, settings?.scoringCalibration);
   } else if (student.eqScore !== null && student.eqScore !== undefined && student.eqScore > 0) {
     finalEqScore = student.eqScore;
   } else {

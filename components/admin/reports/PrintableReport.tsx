@@ -5,6 +5,7 @@ import React from 'react';
 import { Student, Question, Dimension, Package } from '../../../lib/types';
 import RiasecChart from './RiasecChart';
 import DimensionScoresBreakdown from './DimensionScoresBreakdown';
+import { getWechslerIqClassification, getTScoreEqClassification } from '@/lib/psychometrics/normCalculator';
 
 interface PrintableReportProps {
   students: Student[];
@@ -123,7 +124,7 @@ export default function PrintableReport({
                   <div>
                     <div className="text-[9.5px] font-black text-slate-500 uppercase tracking-wider">Kognitif (IQ)</div>
                     <div className="text-[10px] font-extrabold text-slate-900 uppercase tracking-wider leading-none mt-0.5">
-                      {student.iqScore && student.iqScore >= 130 ? 'Sangat Superior' : student.iqScore && student.iqScore >= 120 ? 'Superior' : student.iqScore && student.iqScore >= 110 ? 'Diatas Rata-rata' : student.iqScore && student.iqScore >= 90 ? 'Rata-rata Normal' : student.iqScore && student.iqScore >= 80 ? 'Dibawah Rata-rata' : 'Perlu Bimbingan'}
+                      {student.iqScore ? getWechslerIqClassification(student.iqScore).label : 'Rata-rata Normal'}
                     </div>
                   </div>
                 </div>
@@ -135,7 +136,7 @@ export default function PrintableReport({
                   <div>
                     <div className="text-[9.5px] font-black text-slate-500 uppercase tracking-wider">Emosi (EQ)</div>
                     <div className="text-[10px] font-extrabold text-slate-900 uppercase tracking-wider leading-none mt-0.5">
-                      {student.eqScore && student.eqScore >= 65 ? 'Sangat Stabil' : student.eqScore && student.eqScore >= 55 ? 'Stabil / Baik' : student.eqScore && student.eqScore >= 45 ? 'Rata-rata Normal' : student.eqScore && student.eqScore >= 35 ? 'Cukup' : 'Perlu Bimbingan'}
+                      {student.eqScore ? getTScoreEqClassification(student.eqScore).label : 'Rata-rata (Cukup Stabil)'}
                     </div>
                   </div>
                 </div>

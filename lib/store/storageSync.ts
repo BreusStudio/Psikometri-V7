@@ -1,5 +1,5 @@
 import {
-  Student, Teacher, Question, Dimension, SchoolMajor, TestSettings, TestType, Voucher, Purchase, ReferralCode, Commission, Package, RegistrationRequest
+  Student, Teacher, Question, Dimension, SchoolMajor, TestSettings, TestType, Voucher, Purchase, ReferralCode, Commission, Package, RegistrationRequest, DEFAULT_SCORING_CALIBRATION
 } from '../types';
 import { PRESET_QUESTIONS, INITIAL_STUDENTS, INITIAL_TEACHERS } from '../presetQuestions';
 import {
@@ -295,7 +295,8 @@ export function loadLocalStorageState(): StoreDataState {
       certMainWording: 'Dengan ini menerangkan bahwa {nama} dari {sekolah} pada tanggal {tanggal} telah menyelesaikan seluruh rangkaian Ujian CBT Psikometri. Hasil ini disusun sebagai instrumen panduan bimbingan karir vokasi, potensi kognitif (IQ), regulasi emosi (EQ), serta kecenderungan minat karir (RIASEC) di bawah pengawasan Guru Bimbingan Konseling dan divalidasi oleh CBT Core AI Engine.',
       certCounselorName: 'Prita Oktavia Surya Winanti, S. Psi',
       certCounselorTitle: 'Guru BK / Konselor Sekolah',
-      certCounselorNip: '-'
+      certCounselorNip: '-',
+      scoringCalibration: DEFAULT_SCORING_CALIBRATION
     }
   };
 
@@ -304,7 +305,12 @@ export function loadLocalStorageState(): StoreDataState {
   try {
     const localSettings = localStorage.getItem('psychometric_test_settings');
     if (localSettings) {
-      defaultState.testSettings = { ...defaultState.testSettings, ...JSON.parse(localSettings) };
+      const parsed = JSON.parse(localSettings);
+      defaultState.testSettings = { 
+        ...defaultState.testSettings, 
+        ...parsed,
+        scoringCalibration: parsed.scoringCalibration || DEFAULT_SCORING_CALIBRATION
+      };
     }
     const localTypes = localStorage.getItem('psychometric_test_types');
     if (localTypes) {

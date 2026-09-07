@@ -75,7 +75,10 @@ export function mapStudentToDbRow(s: Student) {
     ai_analysis: aiAnalysisVal,
     completed_tests: Array.isArray(s.completedTests) ? s.completedTests : [],
     allow_test_types: Array.isArray(s.allowedTests) ? s.allowedTests : null,
-    school_origin: s.schoolOrigin || s.school_origin ? String(s.schoolOrigin || s.school_origin) : null
+    school_origin: s.schoolOrigin || s.school_origin ? String(s.schoolOrigin || s.school_origin) : null,
+    exam_duration_seconds: s.examDurationSeconds ?? s.timeSpentSeconds ?? null,
+    validation_status: s.validationStatus ? String(s.validationStatus) : null,
+    validation_recommendation: s.validationRecommendation ? String(s.validationRecommendation) : null
   };
 }
 

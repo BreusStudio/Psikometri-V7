@@ -28,6 +28,7 @@ export default function Home() {
   const [initError, setInitError] = useState<string>('');
   const [verifyId, setVerifyId] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [loadingTimeoutReached, setLoadingTimeoutReached] = useState(false);
 
   // Auth modal state
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -38,6 +39,15 @@ export default function Home() {
   useEffect(() => {
     setIsMounted(true);
     
+    // Safety watchdog timer: force fallback if initialization hangs on slow/restricted devices after 4 seconds
+    const watchdogTimer = setTimeout(() => {
+      setLoadingTimeoutReached(true);
+      const inst = getStoreInstance();
+      if (inst && !store) {
+        setStore(inst);
+      }
+    }, 4000);
+
     // Check for certificate verification query parameters
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -49,17 +59,25 @@ export default function Home() {
 
     const initAll = async () => {
       try {
-        const res = await fetch('/api/config');
-        if (res.ok) {
-          const contentType = res.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const json = await res.json();
-            const config = json.data || json;
-            if (config.supabaseUrl && config.supabaseAnonKey) {
-              const { initSupabaseClient } = await import('@/lib/supabase');
-              initSupabaseClient(config.supabaseUrl, config.supabaseAnonKey);
+        // Fast race timeout for config fetching
+        const configPromise = fetch('/api/config');
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500));
+        
+        try {
+          const res: any = await Promise.race([configPromise, timeoutPromise]);
+          if (res?.ok) {
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+              const json = await res.json();
+              const config = json.data || json;
+              if (config.supabaseUrl && config.supabaseAnonKey) {
+                const { initSupabaseClient } = await import('@/lib/supabase');
+                initSupabaseClient(config.supabaseUrl, config.supabaseAnonKey);
+              }
             }
           }
+        } catch {
+          // Ignore network config timeout on offline/slow devices
         }
       } catch (err) {
         console.warn("Informasi: Kredensial Supabase opsional dari server tidak dimuat:", err);
@@ -123,6 +141,10 @@ export default function Home() {
     };
 
     initAll();
+
+    return () => {
+      clearTimeout(watchdogTimer);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -208,8 +230,23 @@ export default function Home() {
 
   if (!isMounted || !store) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-4 space-y-4">
         <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+        <p className="text-xs text-slate-400 font-medium">Memuat sistem psikometri...</p>
+        {loadingTimeoutReached && (
+          <div className="mt-4 flex flex-col items-center space-y-2 animate-in fade-in max-w-xs text-center">
+            <p className="text-xs text-amber-400">Pemuatan memakan waktu lebih lama dari biasanya.</p>
+            <button
+              onClick={() => {
+                const inst = getStoreInstance();
+                if (inst) setStore(inst);
+              }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-md"
+            >
+              Lanjutkan Masuk
+            </button>
+          </div>
+        )}
       </div>
     );
   }

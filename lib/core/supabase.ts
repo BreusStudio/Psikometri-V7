@@ -99,28 +99,75 @@ export function generateSqlMigrationPatch(): string {
   const allMissing = getAllKnownUnsupportedColumns();
   const tables = Object.keys(allMissing);
   
-  const knownTables = ['students', 'questions', 'dimensions', 'teachers', 'school_majors', 'licenses', 'chat_messages', 'test_results'];
-  const allTablesToEnsure = Array.from(new Set([...tables, ...knownTables]));
-
-  const lines: string[] = [
-    '-- ==========================================================',
-    '-- SKRIP PATCH MIGRASI PERBEDAAN SKEMA SUPABASE & RLS',
-    '-- Salin & eksekusi skrip ini di SQL Editor Supabase Anda',
-    '-- ==========================================================\n'
+  // Real active master tables in our system architecture
+  const knownTables = [
+    'students',
+    'teachers',
+    'questions',
+    'dimensions',
+    'school_majors',
+    'test_settings',
+    'registered_classes',
+    'registered_cohorts',
+    'vouchers',
+    'purchases',
+    'packages',
+    'referrals',
+    'commissions',
+    'registration_requests',
+    'student_answers'
   ];
 
+  const lines: string[] = [
+    '-- ==============================================================================',
+    '-- SKRIP PATCH MIGRASI PERBEDAAN SKEMA SUPABASE & KEBIJAKAN RLS',
+    '-- Salin & eksekusi skrip ini di SQL Editor Supabase Anda.',
+    '-- ==============================================================================\n'
+  ];
+
+  // 1. Ensure tables exist first (safe DDL) with proper primary key
+  lines.push('-- 1. MEMASTIKAN TABEL UTAMA SUDAH DIBUAT (SAFE DDL):');
+  knownTables.forEach(table => {
+    if (table === 'vouchers' || table === 'referrals') {
+      lines.push(`CREATE TABLE IF NOT EXISTS public.${table} (code TEXT PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW());`);
+      lines.push(`ALTER TABLE IF EXISTS public.${table} ADD COLUMN IF NOT EXISTS id TEXT;`);
+    } else if (table === 'student_answers') {
+      lines.push(`CREATE TABLE IF NOT EXISTS public.${table} (student_id TEXT, question_id TEXT, choice_id INTEGER, PRIMARY KEY(student_id, question_id));`);
+    } else {
+      lines.push(`CREATE TABLE IF NOT EXISTS public.${table} (id TEXT PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW());`);
+    }
+  });
+  lines.push('');
+
   const typeMap: Record<string, string> = {
-    cheat_warnings: 'INT DEFAULT 0',
-    time_spent_seconds: 'INT DEFAULT 0',
+    cheat_warnings: 'NUMERIC DEFAULT 0',
+    time_spent_seconds: 'NUMERIC DEFAULT 0',
+    exam_duration_seconds: 'NUMERIC DEFAULT 0',
+    exam_started_at: 'TEXT',
+    validity_status: 'TEXT DEFAULT \'VALID\'',
+    validation_status: 'TEXT DEFAULT \'VALID\'',
+    validity_score: 'NUMERIC DEFAULT 95',
+    validity_flags: 'JSONB DEFAULT \'[]\'::jsonb',
+    validity_reasoning: 'TEXT',
+    validation_recommendation: 'TEXT',
+    completed_tests: 'JSONB DEFAULT \'[]\'::jsonb',
+    allow_test_types: 'JSONB DEFAULT \'[]\'::jsonb',
+    cheating_logs: 'JSONB DEFAULT \'[]\'::jsonb',
+    test_order: 'JSONB DEFAULT \'[]\'::jsonb',
+    randomized_questions: 'JSONB DEFAULT \'[]\'::jsonb',
+    school_origin: 'TEXT',
     is_b2b: 'BOOLEAN DEFAULT false',
     personal_quota: 'INT DEFAULT 0',
     choices: 'JSONB DEFAULT \'[]\'::jsonb',
     answers: 'JSONB DEFAULT \'{}\'::jsonb',
     riasec_scores: 'JSONB DEFAULT \'{}\'::jsonb',
-    iq_score: 'INT',
+    iq_score: 'NUMERIC',
     test_type: 'TEXT',
     managed_class: 'TEXT',
     image_url: 'TEXT',
+    explanation: 'TEXT',
+    is_active: 'BOOLEAN DEFAULT true',
+    deleted_at: 'TEXT',
     role: 'TEXT',
     password: 'TEXT',
     class_id: 'TEXT',
@@ -131,27 +178,27 @@ export function generateSqlMigrationPatch(): string {
   };
 
   if (tables.length > 0) {
-    lines.push('-- 1. PENAMBAHAN KOLOM YANG BELUM TERSEDIA:');
+    lines.push('-- 2. PENAMBAHAN KOLOM YANG BELUM TERSEDIA:');
     tables.forEach(table => {
       const cols = allMissing[table];
       cols.forEach(col => {
         const colType = typeMap[col.toLowerCase()] || 'TEXT';
-        lines.push(`ALTER TABLE public.${table} ADD COLUMN IF NOT EXISTS ${col} ${colType};`);
+        lines.push(`ALTER TABLE IF EXISTS public.${table} ADD COLUMN IF NOT EXISTS "${col}" ${colType};`);
       });
     });
     lines.push('');
   } else {
-    lines.push('-- 1. DDL SKEMA KOLOM: Semua kolom lokal terverifikasi sinkron.\n');
+    lines.push('-- 2. DDL SKEMA KOLOM: Semua kolom lokal terverifikasi sinkron.\n');
   }
 
-  lines.push('-- 2. KEBIJAKAN AKSES DIBUKA (RLS POLICIES FOR ANON WRITES):');
-  allTablesToEnsure.forEach(table => {
-    lines.push(`ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;`);
+  lines.push('-- 3. KEBIJAKAN AKSES DIBUKA (RLS POLICIES FOR ANON & AUTHENTICATED WRITES):');
+  knownTables.forEach(table => {
+    lines.push(`ALTER TABLE IF EXISTS public.${table} ENABLE ROW LEVEL SECURITY;`);
     lines.push(`DROP POLICY IF EXISTS "Allow anon full access on ${table}" ON public.${table};`);
     lines.push(`CREATE POLICY "Allow anon full access on ${table}" ON public.${table} FOR ALL USING (true) WITH CHECK (true);`);
   });
 
-  lines.push('\n-- 3. PAKSA RELOAD CACHE SKEMA POSTGREST SUPABASE:');
+  lines.push('\n-- 4. PAKSA RELOAD CACHE SKEMA POSTGREST SUPABASE:');
   lines.push(`NOTIFY pgrst, 'reload schema';`);
 
   return lines.join('\n');
@@ -316,15 +363,32 @@ export async function runSupabaseDiagnosticProbe(client: SupabaseClient): Promis
 }> {
   clearKnownUnsupportedColumns();
   
-  const tablesToProbe = ['students', 'questions', 'dimensions', 'teachers', 'school_majors', 'licenses'];
+  const tablesToProbe = [
+    'students',
+    'teachers',
+    'questions',
+    'dimensions',
+    'school_majors',
+    'test_settings',
+    'registered_classes',
+    'registered_cohorts',
+    'vouchers',
+    'purchases',
+    'packages',
+    'referrals',
+    'commissions',
+    'registration_requests',
+    'student_answers'
+  ];
   
-  for (const t of tablesToProbe) {
+  for (const tableName of tablesToProbe) {
     try {
-      const { error } = await client.from(t).select('id').limit(1);
+      // Using count exact with head true probes existence safely without relying on any specific column name
+      const { error } = await client.from(tableName).select('*', { count: 'exact', head: true });
       if (error) {
         recentSyncErrors.push({
           timestamp: new Date().toLocaleTimeString(),
-          table: t,
+          table: tableName,
           code: error.code,
           message: error.message || error.details || 'Select query failed'
         });
@@ -332,7 +396,7 @@ export async function runSupabaseDiagnosticProbe(client: SupabaseClient): Promis
     } catch (e: any) {
       recentSyncErrors.push({
         timestamp: new Date().toLocaleTimeString(),
-        table: t,
+        table: tableName,
         message: e?.message || String(e)
       });
     }

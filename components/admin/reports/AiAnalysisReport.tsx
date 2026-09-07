@@ -49,10 +49,24 @@ export default function AiAnalysisReport({ selectedStudent }: AiAnalysisReportPr
               <span className={`w-1.5 h-1.5 rounded-full ${
                 aiAnalysis.validity.status === 'VALID' ? 'bg-emerald-400' : aiAnalysis.validity.status === 'NEEDS_REVIEW' ? 'bg-amber-400' : 'bg-rose-400'
               }`} />
-              <span>Validitas: {aiAnalysis.validity.status} ({aiAnalysis.confidenceScore || 95}% Kepercayaan)</span>
+              <span>Validitas: {aiAnalysis.validity.status} ({aiAnalysis.validity.confidenceScore ?? aiAnalysis.confidenceScore ?? 95}% Kepercayaan)</span>
             </div>
           )}
         </div>
+
+        {/* Validity Flags Notice if any */}
+        {aiAnalysis.validity?.flags && aiAnalysis.validity.flags.length > 0 && (
+          <div className="bg-rose-950/40 border border-rose-700/50 p-3 rounded-xl text-rose-200 text-xs font-sans">
+            <span className="font-bold text-rose-300 block mb-1 font-mono uppercase tracking-wider text-[10px]">
+              ⚠️ Indikasi Anomali Pengerjaan (CBT Audit):
+            </span>
+            <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-rose-300/90">
+              {aiAnalysis.validity.flags.map((flag: string, idx: number) => (
+                <li key={idx}>{flag}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="space-y-4 text-xs leading-relaxed text-slate-300 font-sans">
           <div>

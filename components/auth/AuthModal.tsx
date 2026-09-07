@@ -166,6 +166,20 @@ export function AuthModal({
       return;
     }
 
+    // Anti-Spam / Pengecekan Eksistensi Duplikasi Email (Logic Layer Check)
+    const existingReg = store.getRegistrations().find(r => 
+      r.adminEmail.toLowerCase() === instansiForm.adminEmail.trim().toLowerCase() && 
+      r.registrationType === 'instansi'
+    );
+    if (existingReg) {
+      if (existingReg.status === 'Approved') {
+        setFormError('Instansi dengan email PIC ini sudah disetujui. Silakan login ke Dashboard Admin.');
+      } else {
+        setFormError('Instansi dengan email PIC ini sudah terdaftar dan masih dalam proses persetujuan (Menunggu).');
+      }
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const reg = store.addRegistration({
@@ -200,6 +214,18 @@ export function AuthModal({
 
     if (!personalForm.name.trim() || !personalForm.email.trim()) {
       setFormError('Mohon isi Nama Lengkap dan Email.');
+      return;
+    }
+
+    // Anti-Spam / Pengecekan Eksistensi Duplikasi Email (Logic Layer Check)
+    const allStudents = store.getStudents();
+    const existingStudent = allStudents.find((s: any) => s.email.toLowerCase() === personalForm.email.trim().toLowerCase());
+    if (existingStudent) {
+      if (existingStudent.paymentStatus === 'PAID' || existingStudent.lockedOut === false) {
+        setFormError('Email ini sudah terdaftar dan akun Anda sudah Aktif. Silakan kembali ke menu Login.');
+      } else {
+        setFormError('Email ini sudah memiliki tagihan yang belum dibayar. Hubungi admin atau gunakan email lain.');
+      }
       return;
     }
 

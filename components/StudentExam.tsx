@@ -187,9 +187,13 @@ export default function StudentExam({ store, studentId, onLogout, onRefresh }: S
   }, [cheatOverlay]);
 
   const testingStartTimeRef = useRef<number>(0);
+  const subtestStartTimeRef = useRef<number | null>(null);
   useEffect(() => {
     if (phase === 'testing') {
       testingStartTimeRef.current = Date.now();
+      if (!subtestStartTimeRef.current) {
+        subtestStartTimeRef.current = Date.now();
+      }
     }
   }, [phase]);
 
@@ -373,6 +377,7 @@ export default function StudentExam({ store, studentId, onLogout, onRefresh }: S
   const handleStartSubTest = (type: string) => {
     enterFullscreen();
     setActiveTestType(type);
+    subtestStartTimeRef.current = Date.now();
     
     const studentVoucher = store.getVouchers().find(v => 
       v.generatedAccounts?.some(acc => acc.username.toUpperCase() === studentId.toUpperCase())
@@ -506,6 +511,10 @@ export default function StudentExam({ store, studentId, onLogout, onRefresh }: S
           eqScore: student.eqScore || 90,
           riasecScores: student.riasecScores || { R:0, I:0, A:0, S:0, E:0, C:0 },
           dimensionAnswers: student.dimensionScores || {},
+          validityStatus: student.validationStatus || student.aiAnalysis?.validity?.status,
+          confidenceScore: student.validityScore || student.aiAnalysis?.validity?.confidenceScore || student.aiAnalysis?.confidenceScore,
+          validityFlags: student.validityFlags || student.aiAnalysis?.validity?.flags || [],
+          examDurationSeconds: student.examDurationSeconds || student.timeSpentSeconds,
           aiPromptTemplate: settings.aiPromptTemplate,
           aiSystemInstruction: settings.aiSystemInstruction
         })
@@ -542,6 +551,10 @@ export default function StudentExam({ store, studentId, onLogout, onRefresh }: S
     setShowFinishModal(false);
     if (!currentStudent || !activeTestType) return;
 
+    const elapsedSeconds = subtestStartTimeRef.current 
+      ? Math.max(1, Math.round((Date.now() - subtestStartTimeRef.current) / 1000))
+      : 0;
+
     setUploadTitle(`Menyimpan Sub-Tes ${activeTestType}`);
     setIsWholeExamProgress(false);
     setUploadModalOpen(true);
@@ -549,6 +562,7 @@ export default function StudentExam({ store, studentId, onLogout, onRefresh }: S
     const res = await store.submitExamWithProgress(currentStudent.id, {
       subtestType: activeTestType,
       isWholeExam: false,
+      durationSeconds: elapsedSeconds,
       onProgress: (p) => setUploadProgress(p)
     });
 
@@ -560,6 +574,7 @@ export default function StudentExam({ store, studentId, onLogout, onRefresh }: S
       setUploadModalOpen(false);
       setPhase('hub');
       setActiveTestType(null);
+      subtestStartTimeRef.current = null;
       onRefresh();
     }, 600);
   }, [currentStudent, activeTestType, store, onRefresh]);
@@ -567,12 +582,17 @@ export default function StudentExam({ store, studentId, onLogout, onRefresh }: S
   const handleCompleteWholeExam = useCallback(async () => {
     if (!currentStudent) return;
     
+    const elapsedSeconds = subtestStartTimeRef.current 
+      ? Math.max(1, Math.round((Date.now() - subtestStartTimeRef.current) / 1000))
+      : 0;
+
     setUploadTitle('Finalisasi & Pengiriman Seluruh Ujian');
     setIsWholeExamProgress(true);
     setUploadModalOpen(true);
 
     const res = await store.submitExamWithProgress(currentStudent.id, {
       isWholeExam: true,
+      durationSeconds: elapsedSeconds,
       onProgress: (p) => setUploadProgress(p)
     });
 

@@ -52,7 +52,13 @@ export function mapDatabaseRowToStudent(row: any): Student {
     aiAnalysis: row.ai_analysis,
     completedTests: row.completed_tests || [],
     allowedTests: allowed,
-    schoolOrigin: row.school_origin
+    schoolOrigin: row.school_origin,
+    validationStatus: row.validation_status || row.validationStatus || null,
+    validationRecommendation: row.validation_recommendation || row.validationRecommendation || null,
+    examDurationSeconds: row.exam_duration_seconds ?? row.examDurationSeconds ?? row.time_spent_seconds ?? row.timeSpentSeconds ?? undefined,
+    timeSpentSeconds: row.time_spent_seconds ?? row.timeSpentSeconds ?? row.exam_duration_seconds ?? row.examDurationSeconds ?? undefined,
+    validityScore: row.validity_score ?? row.validityScore ?? undefined,
+    validityFlags: Array.isArray(row.validity_flags) ? row.validity_flags : (Array.isArray(row.validityFlags) ? row.validityFlags : undefined)
   };
 }
 
@@ -102,7 +108,8 @@ export function mapDatabaseRowToQuestion(q: any): Question {
     scoringType: q.scoring_type || q.scoringType,
     isUnfavorable: q.is_unfavorable !== undefined ? q.is_unfavorable : q.isUnfavorable,
     correctChoiceId: q.correct_choice_id || q.correctChoiceId,
-    optionScores: q.option_scores || q.optionScores || q.answers || q.rubric
+    optionScores: q.option_scores || q.optionScores || q.answers || q.rubric,
+    validationType: q.validation_type || q.validationType || undefined
   };
 }
 

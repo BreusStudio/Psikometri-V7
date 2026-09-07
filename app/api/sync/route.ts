@@ -141,7 +141,11 @@ export const POST = withApiHandler(async (req: NextRequest) => {
           ai_analysis: typeof s.ai_analysis === 'string' ? s.ai_analysis : (typeof s.aiAnalysis === 'string' ? s.aiAnalysis : null),
           completed_tests: Array.isArray(s.completed_tests) ? s.completed_tests : (Array.isArray(s.completedTests) ? s.completedTests : []),
           allow_test_types: s.allow_test_types || s.allowedTests || null,
-          school_origin: s.school_origin || s.schoolOrigin || null
+          school_origin: s.school_origin || s.schoolOrigin || null,
+          validity_status: s.validity_status || s.validityStatus || 'VALID',
+          validity_score: typeof s.validity_score === 'number' ? s.validity_score : (typeof s.validityScore === 'number' ? s.validityScore : null),
+          validity_flags: Array.isArray(s.validity_flags) ? s.validity_flags : (Array.isArray(s.validityFlags) ? s.validityFlags : []),
+          time_spent_seconds: typeof s.time_spent_seconds === 'number' ? s.time_spent_seconds : (typeof s.timeSpentSeconds === 'number' ? s.timeSpentSeconds : (typeof s.examDurationSeconds === 'number' ? s.examDurationSeconds : null))
         })).filter(r => Boolean(r.id) && r.id !== 'undefined');
 
         if (validRows.length > 0) {

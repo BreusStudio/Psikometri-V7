@@ -1,5 +1,5 @@
 import {
-  Student, Teacher, Question, Dimension, SchoolMajor, TestSettings, TestType, Voucher, Purchase, ReferralCode, Commission, Package, RegistrationRequest, LandingPageContent
+  Student, Teacher, Question, Dimension, SchoolMajor, TestSettings, TestType, Voucher, Purchase, ReferralCode, Commission, Package, RegistrationRequest, LandingPageContent, ScoringCalibrationSettings
 } from '../types';
 import { classifyQuestionItem, batchClassifyQuestions } from '../services/itemClassifierService';
 import { isSupabaseConfigured, supabase, resilientUpsert } from '../supabase';
@@ -444,8 +444,8 @@ export class PsychometricStore {
       const oldStatus = reg.status;
       reg.status = status;
       
-      // If approved and wasn't approved before, create the admin account
-      if (status === 'Approved' && oldStatus !== 'Approved') {
+      // If approved and wasn't approved before, create the admin account (only for instansi)
+      if (status === 'Approved' && oldStatus !== 'Approved' && reg.registrationType !== 'personal') {
         const username = reg.adminEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '_') + '_' + Math.floor(100 + Math.random() * 900);
         
         let context = 'school_smk';
@@ -772,6 +772,22 @@ export class PsychometricStore {
     });
   }
 
+  public updateScoringCalibration(calibration: ScoringCalibrationSettings, andRecalculate: boolean = true): { totalProcessed: number; totalUpdated: number } {
+    this.state.testSettings = {
+      ...this.state.testSettings,
+      scoringCalibration: calibration
+    };
+    this.saveToStorage();
+    syncManager.enqueue({
+      type: 'settings_update',
+      data: { scoringCalibration: calibration }
+    });
+    if (andRecalculate) {
+      return this.recalculateAllStudentScores({ forcePurgeStaleDimensions: true });
+    }
+    return { totalProcessed: 0, totalUpdated: 0 };
+  }
+
   public getTestTypes(): TestType[] {
     return this.state.testTypes;
   }
@@ -901,7 +917,7 @@ export class PsychometricStore {
     return null;
   }
 
-  public completeTestType(nim: string, testType: string): Student | null {
+  public completeTestType(nim: string, testType: string, durationSeconds?: number): Student | null {
     const student = this.state.students.find(s => s.id === nim);
     if (student) {
       if (!student.completedTests) {
@@ -909,6 +925,11 @@ export class PsychometricStore {
       }
       if (!student.completedTests.includes(testType)) {
         student.completedTests.push(testType);
+      }
+
+      if (typeof durationSeconds === 'number' && durationSeconds > 0) {
+        student.examDurationSeconds = (student.examDurationSeconds || 0) + durationSeconds;
+        student.timeSpentSeconds = student.examDurationSeconds;
       }
       
       calculateStudentScores(student, this.state.questions, this.state.dimensions, this.state.testSettings);
@@ -918,11 +939,21 @@ export class PsychometricStore {
     return null;
   }
 
-  public completeWholeExam(nim: string): Student | null {
+  public completeWholeExam(nim: string, durationSeconds?: number): Student | null {
     const student = this.state.students.find(s => s.id === nim);
     if (student) {
       student.testCompleted = true;
       student.testCompletedAt = new Date().toISOString();
+
+      if (typeof durationSeconds === 'number' && durationSeconds > 0) {
+        student.examDurationSeconds = (student.examDurationSeconds || 0) + durationSeconds;
+        student.timeSpentSeconds = student.examDurationSeconds;
+      } else if (!student.examDurationSeconds && student.testStartedAt) {
+        const start = new Date(student.testStartedAt).getTime();
+        const end = new Date(student.testCompletedAt).getTime();
+        student.examDurationSeconds = Math.max(1, Math.round((end - start) / 1000));
+        student.timeSpentSeconds = student.examDurationSeconds;
+      }
       
       calculateStudentScores(student, this.state.questions, this.state.dimensions, this.state.testSettings);
       this.saveToStorage({ studentId: nim });
@@ -940,6 +971,7 @@ export class PsychometricStore {
     options: {
       subtestType?: string | null;
       isWholeExam?: boolean;
+      durationSeconds?: number;
       onProgress?: (progress: { stage: 'validating' | 'caching' | 'uploading' | 'verifying' | 'completed' | 'error'; percent: number; message: string; details?: string }) => void;
     }
   ): Promise<{ student: Student | null; success: boolean }> {
@@ -955,9 +987,9 @@ export class PsychometricStore {
 
     let updatedStudent: Student | null = null;
     if (options.isWholeExam) {
-      updatedStudent = this.completeWholeExam(nim);
+      updatedStudent = this.completeWholeExam(nim, options.durationSeconds);
     } else if (options.subtestType) {
-      updatedStudent = this.completeTestType(nim, options.subtestType);
+      updatedStudent = this.completeTestType(nim, options.subtestType, options.durationSeconds);
     }
 
     if (!updatedStudent) {
@@ -1222,7 +1254,7 @@ export class PsychometricStore {
       adminPhone: indonesianPhone || data.phone || '-',
       address: 'Pendaftaran Mandiri Online',
       estimatedStudents: 1,
-      schoolType: 'Instansi',
+      schoolType: 'Personal',
       status: 'Pending', // Pending hingga diverifikasi admin
       paymentStatus: 'UNPAID',
       invoiceNumber: invoiceNumber,

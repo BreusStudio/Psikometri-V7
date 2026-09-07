@@ -5,14 +5,19 @@ import { Type } from "@google/genai";
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  let body: any = {};
   try {
-    const body = await req.json();
+    body = await req.json();
     const { 
       studentName, 
       iqScore, 
       eqScore, 
       riasecScores, 
       dimensionAnswers,
+      validityStatus,
+      confidenceScore,
+      validityFlags,
+      examDurationSeconds,
       aiPromptTemplate,
       aiSystemInstruction
     } = body;
@@ -25,6 +30,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const isInvalid = validityStatus === 'INVALID' || (typeof confidenceScore === 'number' && confidenceScore <= 40);
+    const flags: string[] = Array.isArray(validityFlags) ? validityFlags : [];
+
+    // If test is marked INVALID due to speeding, random clicking, or straight-lining:
+    if (isInvalid) {
+      const invalidAnalysis = generateInvalidAnalysis(studentName, iqScore, eqScore, flags, confidenceScore || 35, examDurationSeconds);
+      return NextResponse.json({
+        success: true,
+        isMocked: true,
+        analysis: invalidAnalysis,
+        message: "Data respon terindikasi tidak valid (speeding/pola acak). Laporan diagnostik pembatalan hasil aktif."
+      });
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
     const isMockKey = !apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "";
 
@@ -33,7 +52,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         isMocked: true,
-        analysis: generateMockAnalysis(studentName, iqScore, eqScore, riasecScores),
+        analysis: generateMockAnalysis(studentName, iqScore, eqScore, riasecScores, {
+          status: validityStatus || 'VALID',
+          confidenceScore: confidenceScore || 95,
+          flags: flags
+        }),
         message: "Menggunakan analisis lokal (Kunci API Gemini belum dikonfigurasi di Secrets panel)."
       });
     }
@@ -163,7 +186,14 @@ Berikan laporan terstruktur, kaya informasi, dan sangat detail dalam bahasa Indo
     return NextResponse.json({
       success: true,
       isMocked: false,
-      analysis: parsedAnalysis
+      analysis: {
+        ...parsedAnalysis,
+        validity: {
+          status: validityStatus || 'VALID',
+          confidenceScore: confidenceScore || 95,
+          flags: flags
+        }
+      }
     });
 
   } catch (error: any) {
@@ -172,11 +202,27 @@ Berikan laporan terstruktur, kaya informasi, dan sangat detail dalam bahasa Indo
     const fallbackIq = body?.iqScore || 100;
     const fallbackEq = body?.eqScore || 80;
     const fallbackRiasec = body?.riasecScores || { R: 6, I: 7, A: 5, S: 4, E: 3, C: 6 };
+    const fallbackValidityStatus = body?.validityStatus || 'VALID';
+    const fallbackConfidenceScore = body?.confidenceScore || 95;
+    const fallbackFlags = Array.isArray(body?.validityFlags) ? body.validityFlags : [];
+
+    if (fallbackValidityStatus === 'INVALID' || fallbackConfidenceScore <= 40) {
+      return NextResponse.json({
+        success: true,
+        isMocked: true,
+        analysis: generateInvalidAnalysis(fallbackStudentName, fallbackIq, fallbackEq, fallbackFlags, fallbackConfidenceScore, body?.examDurationSeconds),
+        message: "Data respon terindikasi tidak valid (speeding/pola acak)."
+      });
+    }
 
     return NextResponse.json({
       success: true,
       isMocked: true,
-      analysis: generateMockAnalysis(fallbackStudentName, fallbackIq, fallbackEq, fallbackRiasec),
+      analysis: generateMockAnalysis(fallbackStudentName, fallbackIq, fallbackEq, fallbackRiasec, {
+        status: fallbackValidityStatus,
+        confidenceScore: fallbackConfidenceScore,
+        flags: fallbackFlags
+      }),
       message: "Analisis psikometri otomatis dihasilkan via Engine Psikometri Standar."
     });
   }
@@ -200,7 +246,40 @@ function getEqCategory(score: number): string {
   return "Perlu Bimbingan & Regulasi Emosi";
 }
 
-function generateMockAnalysis(name: string, iq: number, eq: number, riasec: any) {
+function generateInvalidAnalysis(name: string, iq: number, eq: number, flags: string[], confidenceScore: number, duration?: number) {
+  const flagsSummary = flags.length > 0 
+    ? flags.join('; ') 
+    : 'Waktu pengerjaan berada di bawah batas kewajaran psikometri (terlalu cepat)';
+
+  return {
+    cognitiveIqSummary: `PERINGATAN INTEGRITAS DATA: Skor kognitif (${iq || 100}) terindikasi TIDAK VALID karena tes diselesaikan secara terburu-buru/acak (${flagsSummary}). Angka ini tidak mencerminkan kapasitas intelektual sesungguhnya.`,
+    emotionalEqSummary: `PERINGATAN INTEGRITAS DATA: Skor kecerdasan emosional (${eq || 50}) dinyatakan TIDAK DAPAT DIPERTANGGUNGJAWABKAN secara psikometris. Peserta terindikasi tidak membaca butir instrumen.`,
+    riasecCode: "TIDAK VALID",
+    riasecSummary: `Profil kepribadian vokasi Holland RIASEC gugur dan tidak dapat diinterpretasikan. Data respon mengalami distorsi parah akibat laju pengerjaan tidak wajar.`,
+    recommendedMajors: [
+      "Wajib Tes Ulang (Re-test) Terjadwal",
+      "Konseling Tatap Muka Guru BK"
+    ],
+    suggestedCareers: [
+      "Perlu Asesmen Ulang Valid",
+      "Observasi Minat Bakat oleh Konselor"
+    ],
+    developmentPlan: [
+      "Peserta didik wajib mengikuti sesi tes ulang (re-test) terjadwal di bawah pengawasan langsung Guru BK.",
+      "Guru BK perlu memanggil siswa untuk konseling reflektif guna mencari tahu alasan pengerjaan tergesa-gesa atau kendala teknis saat tes.",
+      "Dilarang menggunakan lembar hasil ini sebagai landasan seleksi penjurusan maupun pertimbangan penempatan magang industri."
+    ],
+    hasPotentialIssues: true,
+    detailedPsychologicalAnalysis: `LAPORAN INTEGRITAS PSIKOMETRI RESMI:\nStatus Validitas: TIDAK VALID / INVALID DATA\nIndeks Kepercayaan: ${confidenceScore}%\nTemuan Anomali: ${flagsSummary}${duration ? ` (Durasi tercatat: ${duration} detik)` : ''}.\n\nRekomendasi Tindakan: Batalkan status kelulusan instrumen ini dan jadwalkan pengulangan tes mandiri terawasi di lab sekolah.`,
+    validity: {
+      status: "INVALID",
+      confidenceScore: confidenceScore || 35,
+      flags: flags
+    }
+  };
+}
+
+function generateMockAnalysis(name: string, iq: number, eq: number, riasec: any, validity?: { status: string; confidenceScore: number; flags: string[] }) {
   // Sort RIASEC to find the top 3 categories
   const sorted = Object.entries(riasec)
     .map(([key, val]) => ({ key, val: val as number }))
@@ -265,6 +344,11 @@ function generateMockAnalysis(name: string, iq: number, eq: number, riasec: any)
       `Dorong siswa untuk mengikuti ekstrakurikuler yang relevan untuk melatih soft-skills kerja tim.`
     ],
     hasPotentialIssues: (eq && eq < 40) || (iq && iq < 85),
-    detailedPsychologicalAnalysis: `Siswa menunjukkan profil psikologis dengan dominasi ${primary}. Secara kognitif, ${iq >= 100 ? "berada pada tingkat yang memadai untuk mengikuti pelajaran dengan baik" : "perlu pendekatan belajar yang lebih visual dan praktis"}. Dari sisi emosional, ${eq >= 45 ? "cukup stabil dan mampu bersosialisasi" : "rentan terhadap stres sehingga wali kelas perlu memberikan perhatian ekstra saat masa ujian"}. Rekomendasi pendekatan bagi wali kelas adalah melakukan komunikasi personal secara berkala dan memberikan apresiasi pada setiap pencapaian teknisnya.`
+    detailedPsychologicalAnalysis: `Siswa menunjukkan profil psikologis dengan dominasi ${primary}. Secara kognitif, ${iq >= 100 ? "berada pada tingkat yang memadai untuk mengikuti pelajaran dengan baik" : "perlu pendekatan belajar yang lebih visual dan praktis"}. Dari sisi emosional, ${eq >= 45 ? "cukup stabil dan mampu bersosialisasi" : "rentan terhadap stres sehingga wali kelas perlu memberikan perhatian ekstra saat masa ujian"}. Rekomendasi pendekatan bagi wali kelas adalah melakukan komunikasi personal secara berkala dan memberikan apresiasi pada setiap pencapaian teknisnya.`,
+    validity: validity || {
+      status: "VALID",
+      confidenceScore: 95,
+      flags: []
+    }
   };
 }

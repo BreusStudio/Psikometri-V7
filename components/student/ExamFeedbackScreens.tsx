@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, Loader2, CheckCircle, Award, Printer, X, Download, ShieldCheck, CheckCircle2, FileText, Lock } from 'lucide-react';
+import { AlertTriangle, AlertOctagon, Loader2, CheckCircle, Award, Printer, X, Download, ShieldCheck, CheckCircle2, FileText, Lock } from 'lucide-react';
 import { Student, TestSettings } from '../../lib/types';
 import { resolveClientContext } from '../../lib/core/contextResolver';
 
@@ -23,6 +23,11 @@ export default function ExamFeedbackScreens({
   testSettings
 }: ExamFeedbackScreensProps) {
   const ctx = useMemo(() => resolveClientContext(currentStudent), [currentStudent]);
+  const isInvalid = useMemo(() => Boolean(
+    currentStudent.validationStatus?.includes('INVALID') ||
+    currentStudent.aiAnalysis?.validity?.status === 'INVALID' ||
+    (typeof currentStudent.validityScore === 'number' && currentStudent.validityScore <= 40)
+  ), [currentStudent]);
   const [showCertModal, setShowCertModal] = useState(false);
   const [showPrintWarning, setShowPrintWarning] = useState(false);
 
@@ -319,15 +324,38 @@ export default function ExamFeedbackScreens({
         </div>
       ) : (
         <>
-          <div className="bg-emerald-50 text-emerald-600 p-4 rounded-full w-fit mx-auto border border-emerald-100">
-            <CheckCircle className="w-10 h-10" />
+          <div className={isInvalid ? "bg-rose-50 text-rose-600 p-4 rounded-full w-fit mx-auto border border-rose-100" : "bg-emerald-50 text-emerald-600 p-4 rounded-full w-fit mx-auto border border-emerald-100"}>
+            {isInvalid ? <AlertOctagon className="w-10 h-10" /> : <CheckCircle className="w-10 h-10" />}
           </div>
           <div className="space-y-2">
-            <h2 className="text-sm font-bold text-slate-950 font-sans">Ujian Psikometri Mandiri Berhasil!</h2>
+            <div>
+              <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full font-mono ${
+                isInvalid ? 'text-rose-700 bg-rose-100 border border-rose-200' : 'text-emerald-700 bg-emerald-100/70'
+              }`}>
+                {isInvalid ? 'STATUS: HASIL TIDAK VALID / RE-TEST WAJIB' : 'STATUS: ASESMEN SELESAI'}
+              </span>
+            </div>
+            <h2 className="text-sm font-bold text-slate-950 font-sans mt-2">
+              {isInvalid ? 'Pemberitahuan: Integritas Data Tidak Terpenuhi' : 'Ujian Psikometri Mandiri Berhasil!'}
+            </h2>
             <p className="text-xs text-slate-550 leading-relaxed max-w-md mx-auto font-medium">
-              Selamat, <strong>{currentStudent.name}</strong>. Seluruh lembar jawaban telah diproses. Anda dapat langsung mengunduh Laporan Hasil Ujian Resmi di bawah ini.
+              {isInvalid 
+                ? `Respons ujian ${currentStudent.name} terindikasi diselesaikan terlalu cepat atau berpola acak di bawah batas standar psikometri. Nilai tidak dapat dijadikan acuan rekomendasi karir.`
+                : `Selamat, ${currentStudent.name}. Seluruh lembar jawaban telah diproses. Anda dapat langsung mengunduh Laporan Hasil Ujian Resmi di bawah ini.`
+              }
             </p>
           </div>
+
+          {isInvalid && currentStudent.validityFlags && currentStudent.validityFlags.length > 0 && (
+            <div className="bg-rose-50/80 border border-rose-200 p-3.5 rounded-xl text-rose-800 text-xs text-left leading-relaxed font-sans max-w-md mx-auto">
+              <span className="font-bold block mb-1 font-mono text-[11px] uppercase tracking-wider text-rose-900">Catatan Pengawas CBT:</span>
+              <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                {currentStudent.validityFlags.map((flag, idx) => (
+                  <li key={idx}>{flag}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {aiError && (
             <div className="bg-amber-50 border border-amber-100 p-3.5 rounded-lg text-amber-800 text-xs text-left leading-relaxed font-medium font-sans">
@@ -462,6 +490,16 @@ export default function ExamFeedbackScreens({
                   </>
                 )}
 
+                {/* WATERMARK STAMP WHEN INVALID */}
+                {isInvalid && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-40">
+                    <div className="border-4 border-rose-600/35 text-rose-600/35 font-mono font-black text-2xl uppercase tracking-widest px-8 py-3 rounded-2xl rotate-[-20deg] select-none text-center backdrop-blur-[1px]">
+                      DATA TIDAK VALID<br />
+                      <span className="text-xs font-bold tracking-wider">WAJIB TES ULANG (RE-TEST)</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* GRAPHICAL CONTENT AREA */}
                 <div className="absolute inset-0 p-8 flex flex-col justify-between items-center text-center">
                   
@@ -529,8 +567,10 @@ export default function ExamFeedbackScreens({
                         </svg>
                       </div>
                       <div className="text-left font-sans shrink-1">
-                        <span className="text-[7px] font-black bg-emerald-100 text-emerald-800 px-1 py-0.2 rounded uppercase block w-max">
-                          Original QR Valid
+                        <span className={`text-[7px] font-black px-1 py-0.2 rounded uppercase block w-max ${
+                          isInvalid ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          {isInvalid ? 'STATUS: TIDAK VALID' : 'Original QR Valid'}
                         </span>
                         <p className="text-[8px] font-black text-slate-700 mt-1">CBT SECURE HASH</p>
                         <p className="text-[7px] text-slate-400 font-mono truncate w-24">SECURE-CBT-{currentStudent.id.toUpperCase()}-2026</p>

@@ -355,7 +355,7 @@ export default function RegistrationsTab({ store, onRefresh }: RegistrationsTabP
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                 {filteredList.map(reg => {
-                  const isPersonal = reg.type === 'personal';
+                  const isPersonal = reg.registrationType === 'personal';
                   const isPaid = isPersonal ? (reg.paymentStatus === 'PAID' || reg.status === 'Approved') : (reg.status === 'Approved');
 
                   return (

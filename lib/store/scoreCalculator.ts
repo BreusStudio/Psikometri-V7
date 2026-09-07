@@ -75,10 +75,42 @@ export function evaluateDimensionScore(
   };
 }
 
-export function generateStructuredAnalysis(student: Student) {
+import { ValidityResult } from '../psychometrics/types';
+
+export function generateStructuredAnalysis(student: Student, validity?: ValidityResult) {
   const name = student.name || 'Siswa';
   const iq = student.iqScore || 100;
   const eq = student.eqScore || 50;
+  const isInvalid = validity?.status === 'INVALID' || student.validationStatus?.includes('INVALID');
+
+  if (isInvalid) {
+    const flagsList = validity?.flags && validity.flags.length > 0 
+      ? validity.flags.join(', ') 
+      : 'Pengerjaan terburu-buru / pola respon acak';
+    return {
+      cognitiveIqSummary: `PERINGATAN DIAGNOSTIK: Skor kognitif (${iq}) tidak valid untuk interpretasi resmi karena terindikasi pengerjaan terburu-buru/acak (${flagsList}).`,
+      emotionalEqSummary: `PERINGATAN DIAGNOSTIK: Skor kecerdasan emosional (${eq}) dinyatakan TIDAK VALID. Pola respon menunjukkan peserta tidak membaca butir pernyataan secara reflektif.`,
+      riasecCode: "TIDAK VALID",
+      riasecSummary: `Data preferensi minat Holland RIASEC tidak sah dan terdistorsi oleh pola pengerjaan acak. Tidak dapat digunakan sebagai rujukan peminatan jurusan.`,
+      recommendedMajors: [
+        "Wajib Tes Ulang (Re-test) Terjadwal",
+        "Konseling Tatap Muka Guru BK"
+      ],
+      suggestedCareers: [
+        "Perlu Asesmen Ulang Valid",
+        "Observasi Minat Riil oleh Konselor"
+      ],
+      developmentPlan: [
+        "Siswa wajib dijadwalkan untuk tes ulang (re-test) dengan pendampingan langsung dari Guru BK.",
+        "Lakukan sesi konseling personal untuk mengidentifikasi kendala siswa saat mengerjakan tes awal (tergesa-gesa atau bosan).",
+        "Edukasi siswa bahwa asesmen bakat minat penting bagi masa depannya sehingga membutuhkan kejujuran dan kesungguhan.",
+        "Hasil asesmen saat ini DILARANG dijadikan dasar penetapan jurusan atau seleksi vokasi."
+      ],
+      hasPotentialIssues: true,
+      detailedPsychologicalAnalysis: `LAPORAN INTEGRITAS PSIKOMETRI BAGI GURU BK & WALI KELAS:\nInstrumen CBT mencatat anomali validitas: ${flagsList}. Tingkat kepercayaan data: ${validity?.confidenceScore || 35}% (Kategori: TIDAK VALID / UNRELIABLE). Tindakan: Jadwalkan tes ulang (re-test) terawasi di ruang BK/Lab Komputer.`
+    };
+  }
+
   const riasec = student.riasecScores || { R: 7, I: 7, A: 5, S: 5, E: 6, C: 7 };
 
   const sorted = Object.entries(riasec)
@@ -170,6 +202,9 @@ export function calculateStudentScores(
 
   student.validationStatus = vStatus;
   student.validationRecommendation = vRec;
+  student.validityScore = res.validity.confidenceScore;
+  student.validityFlags = res.validity.flags;
+  student.validityReasoning = res.validity.reasoning;
 
   // Evaluate each dimension against its configured norm ranges
   const evaluatedDims: Record<string, {
@@ -214,8 +249,8 @@ export function calculateStudentScores(
     const isAiString = typeof student.aiAnalysis === 'string';
     const isAiObject = student.aiAnalysis && typeof student.aiAnalysis === 'object';
 
+    const defaultAnalysis = generateStructuredAnalysis(student, res.validity);
     if (!isAiObject || !student.aiAnalysis.narrativeSummary) {
-      const defaultAnalysis = generateStructuredAnalysis(student);
       const existingNarrative = isAiString ? student.aiAnalysis : (isAiObject ? student.aiAnalysis.narrativeSummary : undefined);
 
       student.aiAnalysis = {
@@ -225,6 +260,13 @@ export function calculateStudentScores(
         validity: res.validity,
         confidenceScore: res.validity.confidenceScore
       };
+    } else {
+      // Keep structured scores and flags synchronized with new calibrated evaluation
+      student.aiAnalysis.cognitiveIqSummary = defaultAnalysis.cognitiveIqSummary;
+      student.aiAnalysis.emotionalEqSummary = defaultAnalysis.emotionalEqSummary;
+      student.aiAnalysis.hasPotentialIssues = defaultAnalysis.hasPotentialIssues;
+      student.aiAnalysis.validity = res.validity;
+      student.aiAnalysis.confidenceScore = res.validity.confidenceScore;
     }
   }
 }

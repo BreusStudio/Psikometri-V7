@@ -10,15 +10,17 @@ import {
   ShieldCheck, 
   Cpu, 
   Server,
-  Sparkles
+  Sparkles,
+  Scale
 } from 'lucide-react';
 import { TestSettings } from '../../lib/types';
 import SettingsTab from './SettingsTab';
 import CertificateSettingsTab from './CertificateSettingsTab';
 import DbSyncTab from './DbSyncTab';
 import LandingEditorTab from './LandingEditorTab';
+import CalibrationTab from './CalibrationTab';
 
-export type SystemSettingsSubTabType = 'settings' | 'certificate' | 'dbsync' | 'landing';
+export type SystemSettingsSubTabType = 'settings' | 'calibration' | 'certificate' | 'dbsync' | 'landing';
 
 interface SystemSettingsHubTabProps {
   testSettings: TestSettings;
@@ -117,6 +119,19 @@ export default function SystemSettingsHubTab({
 
           <button
             type="button"
+            onClick={() => setCurrentSubTab('calibration')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              currentSubTab === 'calibration'
+                ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/60'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
+          >
+            <Scale className="w-4 h-4 text-indigo-600" />
+            <span>Kalibrasi Norma & Skoring</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setCurrentSubTab('certificate')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               currentSubTab === 'certificate'
@@ -170,6 +185,15 @@ export default function SystemSettingsHubTab({
           session={session}
           store={store}
           onRefresh={onRefresh}
+        />
+      )}
+
+      {currentSubTab === 'calibration' && (
+        <CalibrationTab
+          testSettings={testSettings}
+          store={store}
+          onRefresh={onRefresh}
+          showNotification={showNotification}
         />
       )}
 

@@ -71,8 +71,8 @@ export default function StudentSidebar({
         const isTroubled = s.testCompleted && (
           s.lockedOut || 
           s.cheatWarnings >= 2 || 
-          (s.iqScore !== null && s.iqScore < 90) || 
-          (s.eqScore !== null && s.eqScore < 90) ||
+          (s.iqScore !== null && s.iqScore < 80) || 
+          (s.eqScore !== null && s.eqScore < 40) ||
           s.aiAnalysis?.hasPotentialIssues === true
         );
         troubledMatch = isTroubled;

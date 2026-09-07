@@ -298,9 +298,9 @@ export default function DbSyncTab({
               missingCols.push('logo_url', 'header_title', 'price_per_account');
             }
           } else if (table.name === 'students') {
-            const { error: cErr } = await supabase.from('students').select('allow_test_types, school_origin, cheat_warnings').limit(1);
+            const { error: cErr } = await supabase.from('students').select('allow_test_types, school_origin, cheat_warnings, validity_status, time_spent_seconds').limit(1);
             if (cErr && (cErr.message?.includes('does not exist') || cErr.message?.includes('Could not find'))) {
-              missingCols.push('allow_test_types', 'school_origin', 'cheat_warnings');
+              missingCols.push('allow_test_types', 'school_origin', 'cheat_warnings', 'validity_status', 'time_spent_seconds');
             }
           }
 
@@ -345,6 +345,25 @@ export default function DbSyncTab({
   const handleCopySql = (sqlText: string, index: number) => {
     navigator.clipboard.writeText(sqlText);
     setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const handleDownloadSql = () => {
+    const blob = new Blob([sqlCode], { type: 'text/sql' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'supabase_schema.sql';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopyLogs = () => {
+    const logText = syncLogs.join('\n');
+    navigator.clipboard.writeText(`=== DIAGNOSTIC SQL HEALTH CHECK REPORT ===\nTimestamp: ${new Date().toLocaleString()}\nConnection: ${isSupabaseConfigured ? 'Connected successfully' : 'Not configured'}\n\n${logText}\n==========================================`);
+    setCopiedIndex(2);
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
@@ -709,13 +728,23 @@ export default function DbSyncTab({
               <span className="text-[10px] font-bold font-mono text-slate-300 uppercase tracking-widest flex items-center gap-2">
                 <Terminal className="w-3.5 h-3.5 text-indigo-400" /> Console Log Activity
               </span>
-              <button 
-                type="button"
-                onClick={() => setSyncLogs([])}
-                className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 font-mono cursor-pointer"
-              >
-                Bersihkan Log
-              </button>
+              <div className="flex gap-3 items-center">
+                <button 
+                  type="button"
+                  onClick={handleCopyLogs}
+                  className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 font-mono cursor-pointer flex items-center gap-1"
+                >
+                  {copiedIndex === 2 ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />} 
+                  {copiedIndex === 2 ? 'Tersalin' : 'Salin Log'}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setSyncLogs([])}
+                  className="text-[9px] font-bold text-rose-400 hover:text-rose-300 font-mono cursor-pointer"
+                >
+                  Bersihkan Log
+                </button>
+              </div>
             </div>
             
             <div className="font-mono text-[10px] text-slate-300 bg-slate-900/80 p-3.5 rounded-xl border border-slate-850 h-36 overflow-y-auto space-y-1.5 leading-relaxed scrollbar-thin">
@@ -765,10 +794,26 @@ export default function DbSyncTab({
                     </>
                   )}
                 </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadSql}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg flex items-center gap-1.5 transition-all border border-slate-300 shadow-sm cursor-pointer"
+                >
+                  <Download className="w-3 h-3" /> Unduh .sql
+                </button>
               </div>
             </div>
 
             <div className="p-4 sm:p-5 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl flex items-start gap-2.5 text-[10px] text-amber-900 leading-relaxed font-medium mb-4">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="font-bold text-amber-950 block mb-1 text-[11px]">Panduan Pengguna HP (Mobile):</strong>
+                  Jika Anda menggunakan HP untuk mengeksekusi SQL di Supabase: Sangat disarankan menggunakan opsi <b>&quot;Unduh .sql&quot;</b> lalu unggah ke Supabase SQL Editor. 
+                  Jika Anda melakukan Copy-Paste, pastikan tombol hijau di Supabase bertuliskan <b className="text-emerald-700">RUN</b> (bukan <i className="text-rose-700">RUN SELECTED</i>). Ketuk area kosong pada editor 1x jika tombol bertuliskan <i>RUN SELECTED</i>.
+                </div>
+              </div>
+
               <div className="space-y-2 text-[11px] leading-relaxed text-slate-600 font-medium">
                 <p className="font-bold text-slate-800">Panduan Eksekusi SQL di Dashboard Supabase:</p>
                 <ol className="list-decimal pl-4 space-y-1.5 text-[10px]">

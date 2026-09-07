@@ -78,3 +78,12 @@ Untuk memastikan proses perbaikan berjalan cepat, aman, dan tanpa error berulang
   - **Dilarang Keras** menjalankan perintah `bun`, `bunx`, `npx`, atau `yarn`.
   - Seluruh dependensi, instalasi paket, dan eksekusi skrip internal **WAJIB murni menggunakan NPM** (`npm run ...`, `npm install`, atau tool resmi AI Studio seperti `install_applet_dependencies`).
   - Tidak diperbolehkan memicu instalasi *ephemeral runner* di luar ekosistem resmi `package-lock.json`.
+
+### 9. Integritas Lingkungan Dev Server & Binary Management
+- **Status**: **TERIMPLEMENTASI** (Penetapan stabilitas dev server & Next.js runtime).
+- **Prosedur**:
+  - **Workspace Path**: Lingkungan aplikasi berada di `/app/applet`. Seluruh file konfigurasi (`package.json`, `tsconfig.json`, `next.config.ts`) dan direktori dependensi (`node_modules`) harus terjaga keutuhannya di `/app/applet`.
+  - **Integritas Binaries (`node_modules/.bin`)**: Jika terjadi error `sh: 1: next: not found` saat `npm run dev` atau restart dev server, akar masalahnya adalah hilangnya direktori link `node_modules/.bin`. Pemulihan WAJIB dilakukan via `npm install --prefer-offline` dengan NPM murni. Dilarang menghapus `node_modules` atau `package.json`.
+  - **Penanganan Dev Server Hang / Defunct**: Jika dev server terhenti, periksa apakah terdapat proses latar belakang yang menggantung (seperti installer pihak ketiga), hentikan proses yang macet, pastikan binary Next.js siap (`./node_modules/.bin/next`), lalu gunakan tool resmi `restart_dev_server`.
+  - **Verifikasi Liveness Port 3000**: Dev server dinyatakan sehat setelah menghasilkan respons HTTP 200 via `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/`.
+

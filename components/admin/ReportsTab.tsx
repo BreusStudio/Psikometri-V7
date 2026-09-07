@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Sparkles, RotateCw, AlertCircle, HelpCircle, ShieldCheck, Printer, X, Image as ImageIcon, Upload, Trash2 } from 'lucide-react';
+import { Sparkles, RotateCw, AlertCircle, HelpCircle, ShieldCheck, Printer, X, Image as ImageIcon, Upload, Trash2, Scale } from 'lucide-react';
 import { Student, Question, Dimension, Package } from '../../lib/types';
 import { useReportFilter } from '@/lib/hooks/useReportFilter';
 
@@ -11,6 +11,7 @@ import RiasecChart from './reports/RiasecChart';
 import DimensionScoresBreakdown from './reports/DimensionScoresBreakdown';
 import AiAnalysisReport from './reports/AiAnalysisReport';
 import PrintableReport from './reports/PrintableReport';
+import CalibrationTab from './CalibrationTab';
 
 interface ReportsTabProps {
   store?: any;
@@ -81,6 +82,7 @@ export default function ReportsTab({
   const [recalcOnlyCompleted, setRecalcOnlyCompleted] = useState(true);
   const [recalcForcePurge, setRecalcForcePurge] = useState(true);
   const [recalcResult, setRecalcResult] = useState<{ processed: number; updated: number } | null>(null);
+  const [showCalibrationModal, setShowCalibrationModal] = useState(false);
 
   const handleRecalculateScores = () => {
     setRecalcResult(null);
@@ -348,6 +350,18 @@ export default function ReportsTab({
                   >
                     <RotateCw className={`w-3.5 h-3.5 text-amber-600 ${recalculating ? 'animate-spin' : ''}`} />
                     <span>Hitung Ulang Skor</span>
+                  </button>
+                )}
+
+                {store && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCalibrationModal(true)}
+                    className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold py-2 px-3 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Kalibrasi Parameter Norma & Formula Penilaian IQ/EQ Siswa"
+                  >
+                    <Scale className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Kalibrasi Norma</span>
                   </button>
                 )}
 
@@ -806,6 +820,34 @@ export default function ReportsTab({
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* CALIBRATION MODAL */}
+      {showCalibrationModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm print:hidden overflow-y-auto">
+          <div className="bg-slate-50 rounded-3xl p-6 md:p-8 max-w-5xl w-full shadow-2xl animate-in zoom-in-95 border border-slate-200 my-8 max-h-[90vh] overflow-y-auto relative">
+            <button
+              type="button"
+              onClick={() => setShowCalibrationModal(false)}
+              className="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer z-20"
+              title="Tutup Kalibrasi"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <CalibrationTab
+              testSettings={store?.getTestSettings() || {}}
+              store={store}
+              onRefresh={() => {
+                if (onRefresh) onRefresh();
+                if (selectedStudent && store) {
+                  const fresh = store.getStudents().find((s: any) => s.id === selectedStudent.id);
+                  if (fresh) setSelectedStudent(fresh);
+                }
+              }}
+            />
           </div>
         </div>
       )}

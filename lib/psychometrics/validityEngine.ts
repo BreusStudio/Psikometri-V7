@@ -83,7 +83,7 @@ export function checkSocialDesirability(student: Student, questions: Question[])
 /**
  * Evaluates Speeding & Latency (Random clicking / completion speed).
  */
-export function checkSpeedingLatency(student: Student, questions: Question[]): { speedingFlag: boolean; flags: string[] } {
+export function checkSpeedingLatency(student: Student, questions: Question[]): { speedingFlag: boolean; flags: string[]; avgTimePerItem: number } {
   const flags: string[] = [];
   let speedingFlag = false;
 
@@ -92,20 +92,106 @@ export function checkSpeedingLatency(student: Student, questions: Question[]): {
 
   // Check cheat warnings or lockout
   if (student.cheatWarnings && student.cheatWarnings >= 3) {
-    flags.push('Peringatan kecurangan melebihi ambang batas (>=3 kali keluar dari aplikasi)');
+    flags.push('Peringatan kecurangan melebihi ambang batas (>=3 kali keluar dari jendela ujian)');
     speedingFlag = true;
   }
 
-  // Check completion time if recorded
-  if (student.timeSpentSeconds && answeredCount > 10) {
-    const avgTimePerItem = student.timeSpentSeconds / answeredCount;
-    if (avgTimePerItem < 2.0) {
-      speedingFlag = true;
-      flags.push(`Waktu pengerjaan terlalu cepat (${avgTimePerItem.toFixed(1)} detik/soal, batas minimal 2.0s/soal)`);
+  // Derive total elapsed duration (in seconds)
+  let totalDuration = student.examDurationSeconds || student.timeSpentSeconds || 0;
+  
+  // Fallback: derive from timestamps if not explicitly set
+  if ((!totalDuration || totalDuration <= 0) && student.testStartedAt && student.testCompletedAt) {
+    const startTime = new Date(student.testStartedAt).getTime();
+    const endTime = new Date(student.testCompletedAt).getTime();
+    if (endTime > startTime) {
+      totalDuration = Math.round((endTime - startTime) / 1000);
     }
   }
 
-  return { speedingFlag, flags };
+  let avgTimePerItem = 0;
+  if (answeredCount > 0 && totalDuration > 0) {
+    avgTimePerItem = totalDuration / answeredCount;
+  }
+
+  // Speeding Thresholds:
+  // 1. Average time < 2.5s per answered question for tests with >= 8 questions
+  if (answeredCount >= 8 && totalDuration > 0) {
+    if (avgTimePerItem < 2.5) {
+      speedingFlag = true;
+      flags.push(`Waktu pengerjaan terindikasi terlalu cepat (${avgTimePerItem.toFixed(1)} detik/soal, batas minimal wajar 2.5s/soal)`);
+    }
+  }
+
+  // 2. Suspiciously fast total duration for large question counts
+  if (answeredCount >= 20 && totalDuration > 0 && totalDuration < 90) {
+    speedingFlag = true;
+    flags.push(`Total durasi ujian tidak realistis (${totalDuration} detik untuk ${answeredCount} butir soal)`);
+  }
+
+  return { speedingFlag, flags, avgTimePerItem };
+}
+
+/**
+ * Evaluates Straight-Lining and Monotonous Pattern Responses.
+ */
+export function checkStraightLiningPattern(student: Student, questions: Question[]): { straightLiningFlag: boolean; flags: string[] } {
+  const flags: string[] = [];
+  let straightLiningFlag = false;
+
+  const answers = student.answers || {};
+  if (Object.keys(answers).length < 10) {
+    return { straightLiningFlag, flags };
+  }
+
+  // Inspect sequence of selected choices
+  const choicePositions: number[] = [];
+  questions.forEach(q => {
+    const selectedId = answers[q.id];
+    if (selectedId && q.choices) {
+      const idx = q.choices.findIndex(c => c.id === selectedId);
+      if (idx !== -1) {
+        choicePositions.push(idx);
+      }
+    }
+  });
+
+  if (choicePositions.length >= 10) {
+    let currentStreak = 1;
+    let maxStreak = 1;
+    let streakVal = choicePositions[0];
+
+    for (let i = 1; i < choicePositions.length; i++) {
+      if (choicePositions[i] === choicePositions[i - 1]) {
+        currentStreak++;
+        if (currentStreak > maxStreak) {
+          maxStreak = currentStreak;
+          streakVal = choicePositions[i];
+        }
+      } else {
+        currentStreak = 1;
+      }
+    }
+
+    if (maxStreak >= 10) {
+      straightLiningFlag = true;
+      flags.push(`Terdeteksi pola respons monoton/straight-lining (${maxStreak} butir soal berurutan memilih posisi opsi yang sama persis [opsi #${streakVal + 1}])`);
+    } else if (maxStreak >= 7) {
+      flags.push(`Pola respons cenderung seragam (${maxStreak} butir berturut-turut memilih opsi yang sama)`);
+    }
+  }
+
+  // Check Holland RIASEC Flatness / Lack of differentiation
+  if (student.riasecScores && Object.keys(answers).length >= 12) {
+    const rScores = Object.values(student.riasecScores).map(v => Number(v) || 0);
+    const mean = rScores.reduce((a, b) => a + b, 0) / (rScores.length || 1);
+    const variance = rScores.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (rScores.length || 1);
+
+    if (variance === 0 && mean > 0) {
+      flags.push('Profil minat Holland RIASEC tidak berdiferensiasi (semua dimensi bernilai identik/seragam)');
+    }
+  }
+
+  return { straightLiningFlag, flags };
 }
 
 /**
@@ -114,16 +200,17 @@ export function checkSpeedingLatency(student: Student, questions: Question[]): {
 export function evaluateTestValidity(student: Student, questions: Question[]): ValidityResult {
   const { vrinScore, flags: vrinFlags } = checkVRINConsistency(student, questions);
   const { lieScore, flags: lieFlags } = checkSocialDesirability(student, questions);
-  const { speedingFlag, flags: speedingFlags } = checkSpeedingLatency(student, questions);
+  const { speedingFlag, flags: speedingFlags, avgTimePerItem } = checkSpeedingLatency(student, questions);
+  const { straightLiningFlag, flags: patternFlags } = checkStraightLiningPattern(student, questions);
 
-  const allFlags = [...vrinFlags, ...lieFlags, ...speedingFlags];
+  const allFlags = [...vrinFlags, ...lieFlags, ...speedingFlags, ...patternFlags];
 
   let status: 'VALID' | 'NEEDS_REVIEW' | 'INVALID' = 'VALID';
   let confidenceScore = 95;
 
-  if (speedingFlag || vrinScore >= 3) {
+  if (speedingFlag || straightLiningFlag || vrinScore >= 3) {
     status = 'INVALID';
-    confidenceScore = 35;
+    confidenceScore = speedingFlag && straightLiningFlag ? 20 : 35;
   } else if (vrinScore > 0 || lieScore >= 2 || allFlags.length > 0) {
     status = 'NEEDS_REVIEW';
     confidenceScore = 70;
@@ -132,8 +219,8 @@ export function evaluateTestValidity(student: Student, questions: Question[]): V
   const reasoning = status === 'VALID' 
     ? 'Hasil tes konsisten, jujur, dan memenuhi standar durasi pengerjaan psikometri.'
     : status === 'NEEDS_REVIEW'
-    ? `Hasil tes memerlukan perhatian khusus psikolog. Catatan: ${allFlags.join('; ')}.`
-    : `Hasil tes dinilai TIDAK VALID untuk interpretasi diagnostik. Alasan: ${allFlags.join('; ')}.`;
+    ? `Hasil tes memerlukan perhatian khusus konselor. Catatan: ${allFlags.join('; ')}.`
+    : `Hasil tes dinilai TIDAK VALID untuk interpretasi diagnostik karena pola pengerjaan terburu-buru/acak. Catatan: ${allFlags.join('; ')}.`;
 
   return {
     status,

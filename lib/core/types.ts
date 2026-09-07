@@ -74,6 +74,10 @@ export interface Student {
   scores?: any;
   examStartedAt?: string | null;
   examDurationSeconds?: number;
+  timeSpentSeconds?: number;
+  validityScore?: number;
+  validityFlags?: string[];
+  validityReasoning?: string;
   violatingCount?: number;
   cheatLogs?: any[];
   isDummy?: boolean;
@@ -202,6 +206,51 @@ export interface TestType {
   pricePerUser?: number;
 }
 
+export interface IqConversionBracket {
+  minPercentage: number;
+  maxPercentage: number;
+  iqScore: number;
+  label: string;
+}
+
+export interface ScoringCalibrationSettings {
+  mode: 'curve' | 'table';
+  iqBaselinePercentage: number; // percentage of correct answers that maps to IQ 100 (e.g. 35%)
+  iqSpreadPercentage: number;   // percentage spread for 1 SD (15 IQ points) (e.g. 15%)
+  minIq: number;                // default 65
+  maxIq: number;                // default 145
+  
+  eqBaselinePercentage: number; // percentage of scores to map to T-Score 50 (e.g. 50%)
+  eqSpreadPercentage: number;   // percentage spread for 1 SD (10 T-Score points) (e.g. 18%)
+  minEq: number;                // default 20
+  maxEq: number;                // default 80
+  
+  iqBrackets?: IqConversionBracket[];
+}
+
+export const DEFAULT_IQ_BRACKETS: IqConversionBracket[] = [
+  { minPercentage: 85, maxPercentage: 100, iqScore: 130, label: 'Sangat Superior' },
+  { minPercentage: 70, maxPercentage: 84, iqScore: 120, label: 'Superior' },
+  { minPercentage: 55, maxPercentage: 69, iqScore: 110, label: 'Di Atas Rata-rata' },
+  { minPercentage: 35, maxPercentage: 54, iqScore: 100, label: 'Rata-rata Normal' },
+  { minPercentage: 25, maxPercentage: 34, iqScore: 90, label: 'Rata-rata Bawah' },
+  { minPercentage: 15, maxPercentage: 24, iqScore: 80, label: 'Di Bawah Rata-rata' },
+  { minPercentage: 0, maxPercentage: 14, iqScore: 70, label: 'Batas Rendah / Khusus' }
+];
+
+export const DEFAULT_SCORING_CALIBRATION: ScoringCalibrationSettings = {
+  mode: 'curve',
+  iqBaselinePercentage: 35, // 35% correct answers in challenging vocational aptitude = IQ 100
+  iqSpreadPercentage: 15,   // 15% delta = 1 SD (15 IQ points)
+  minIq: 65,
+  maxIq: 145,
+  eqBaselinePercentage: 50, // 50% = T-Score 50
+  eqSpreadPercentage: 18,   // 18% = 1 SD (10 T-Score points)
+  minEq: 20,
+  maxEq: 80,
+  iqBrackets: DEFAULT_IQ_BRACKETS
+};
+
 export interface TestSettings {
   iqActive: boolean;
   eqActive: boolean;
@@ -230,6 +279,7 @@ export interface TestSettings {
   certCounselorName?: string;
   certCounselorTitle?: string;
   certCounselorNip?: string;
+  scoringCalibration?: ScoringCalibrationSettings;
 }
 
 export interface Voucher {
