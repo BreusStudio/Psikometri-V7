@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Sparkles, RotateCw, AlertCircle, HelpCircle, ShieldCheck, Printer, X, Image as ImageIcon, Upload, Trash2, Scale } from 'lucide-react';
+import { Sparkles, RotateCw, AlertCircle, HelpCircle, ShieldCheck, Printer, X, Image as ImageIcon, Upload, Trash2, Scale, Settings } from 'lucide-react';
 import { Student, Question, Dimension, Package } from '../../lib/types';
 import { useReportFilter } from '@/lib/hooks/useReportFilter';
 
@@ -11,6 +11,7 @@ import RiasecChart from './reports/RiasecChart';
 import DimensionScoresBreakdown from './reports/DimensionScoresBreakdown';
 import AiAnalysisReport from './reports/AiAnalysisReport';
 import PrintableReport from './reports/PrintableReport';
+import ReportPrintModal from './reports/ReportPrintModal';
 import CalibrationTab from './CalibrationTab';
 
 interface ReportsTabProps {
@@ -71,6 +72,7 @@ export default function ReportsTab({
   } = useReportFilter(students, packages);
 
   const [showPrintWarning, setShowPrintWarning] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const [loadingBatchAi, setLoadingBatchAi] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number; currentStudentName: string } | null>(null);
@@ -83,6 +85,7 @@ export default function ReportsTab({
   const [recalcForcePurge, setRecalcForcePurge] = useState(true);
   const [recalcResult, setRecalcResult] = useState<{ processed: number; updated: number } | null>(null);
   const [showCalibrationModal, setShowCalibrationModal] = useState(false);
+  const [showToolsDropdown, setShowToolsDropdown] = useState(false);
 
   const handleRecalculateScores = () => {
     setRecalcResult(null);
@@ -204,23 +207,25 @@ export default function ReportsTab({
 
   function handlePrint(targetIds?: string[]) {
     const idsToPrint = targetIds && targetIds.length > 0 ? targetIds : selectedIds;
+    let finalIds = idsToPrint;
     if (idsToPrint.length === 0) {
       if (selectedStudent) {
+        finalIds = [selectedStudent.id];
         setSelectedIds([selectedStudent.id]);
+      } else if (students.length > 0) {
+        finalIds = [students[0].id];
+        setSelectedIds([students[0].id]);
       } else {
         return;
       }
     } else {
       setSelectedIds(idsToPrint);
     }
-    
-    // Check if we are inside an iframe
-    const isIframe = typeof window !== 'undefined' && window.self !== window.top;
-    if (isIframe) {
-      setShowPrintWarning(true);
-    } else {
-      setPrintTrigger(prev => prev + 1);
-    }
+
+    // Direct Native Print: panggil window.print() langsung tanpa popup
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   // Extract unique classes and cohorts from students list
@@ -317,95 +322,115 @@ export default function ReportsTab({
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 space-y-6 text-left">
             
             {/* Header Profil */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-4 gap-4">
-              <div>
-                <span className="text-[10px] font-mono font-bold bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded uppercase tracking-wider">
-                  Profil Psikogram Hasil Asesmen
-                </span>
-                <h2 className="text-lg font-bold text-slate-800 mt-1">{selectedStudent.name}</h2>
-                <p className="text-xs text-slate-500">Kelas / Grup: {selectedStudent.classGroup} • ID / NIS: {selectedStudent.id}</p>
-              </div>
+            <div className="border-b border-slate-100 pb-4 space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <span className="text-[10px] font-mono font-bold bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded uppercase tracking-wider">
+                    Profil Psikogram Hasil Asesmen
+                  </span>
+                  <h2 className="text-lg font-bold text-slate-800 mt-1">{selectedStudent.name}</h2>
+                  <p className="text-xs text-slate-500">Kelas / Grup: {selectedStudent.classGroup} • ID / NIS: {selectedStudent.id}</p>
+                </div>
 
-              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-start md:justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLogoInputUrl(logoUrl || '');
-                    setShowLogoModal(true);
-                  }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200"
-                  title="Atur Logo Header Laporan PDF"
-                >
-                  <ImageIcon className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Logo PDF</span>
-                </button>
-
-                {store && (
+                {/* Dropdown Menu untuk Alat Tambahan (Logo, Rekalkulasi, Kalibrasi) */}
+                <div className="relative">
                   <button
                     type="button"
-                    onClick={handleRecalculateScores}
-                    disabled={recalculating}
-                    className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold py-2 px-3 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    title="Kalkulasi Ulang Skor Seluruh Siswa Berdasarkan Kunci/Norma Terbaru"
+                    onClick={() => setShowToolsDropdown(!showToolsDropdown)}
+                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200"
+                    title="Menu Opsi Alat Tambahan"
                   >
-                    <RotateCw className={`w-3.5 h-3.5 text-amber-600 ${recalculating ? 'animate-spin' : ''}`} />
-                    <span>Hitung Ulang Skor</span>
+                    <Settings className="w-3.5 h-3.5 text-slate-500" />
+                    <span>⚙️ Alat & Norma</span>
                   </button>
-                )}
 
-                {store && (
-                  <button
-                    type="button"
-                    onClick={() => setShowCalibrationModal(true)}
-                    className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold py-2 px-3 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-                    title="Kalibrasi Parameter Norma & Formula Penilaian IQ/EQ Siswa"
-                  >
-                    <Scale className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Kalibrasi Norma</span>
-                  </button>
-                )}
+                  {showToolsDropdown && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowToolsDropdown(false);
+                          setLogoInputUrl(logoUrl || '');
+                          setShowLogoModal(true);
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl flex items-center gap-2"
+                      >
+                        <ImageIcon className="w-4 h-4 text-indigo-600" />
+                        <span>Atur Logo PDF</span>
+                      </button>
 
-                {selectedStudent.testCompleted && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (selectedIds.length > 1) {
-                          handlePrint();
-                        } else {
-                          handlePrint([selectedStudent.id]);
-                        }
-                      }}
-                      className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3.5 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                      title={selectedIds.length > 1 ? `Cetak Laporan PDF (${selectedIds.length} Siswa Terpilih)` : "Cetak Laporan PDF Siswa Ini"}
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>{selectedIds.length > 1 ? `Cetak PDF (${selectedIds.length})` : 'Cetak PDF'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (selectedIds.length > 1) {
-                          handleBatchAiAnalysis(selectedIds);
-                        } else {
-                          triggerGeminiAnalysis(selectedStudent);
-                        }
-                      }}
-                      disabled={loadingAi || loadingBatchAi}
-                      className="text-xs bg-slate-900 hover:bg-slate-800 disabled:bg-slate-700 text-white font-bold py-2 px-3.5 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                      title={selectedIds.length > 1 ? `Generasi Analisis AI Massal (${selectedIds.length} Siswa Terpilih)` : "Analisis AI Siswa"}
-                    >
-                      {loadingAi || loadingBatchAi ? (
-                        <RotateCw className="w-4 h-4 animate-spin text-teal-350" />
-                      ) : (
-                        <Sparkles className="w-4 h-4 text-teal-300 animate-pulse" />
+                      {store && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowToolsDropdown(false);
+                            handleRecalculateScores();
+                          }}
+                          disabled={recalculating}
+                          className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl flex items-center gap-2"
+                        >
+                          <RotateCw className={`w-4 h-4 text-amber-600 ${recalculating ? 'animate-spin' : ''}`} />
+                          <span>Hitung Ulang Skor</span>
+                        </button>
                       )}
-                      {selectedIds.length > 1 ? `Analisis AI Massal (${selectedIds.length})` : (selectedStudent.aiAnalysis ? 'Perbarui AI' : 'Analisis AI')}
-                    </button>
-                  </>
-                )}
+
+                      {store && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowToolsDropdown(false);
+                            setShowCalibrationModal(true);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl flex items-center gap-2"
+                        >
+                          <Scale className="w-4 h-4 text-indigo-600" />
+                          <span>Kalibrasi Norma</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Dua Tombol Utama Simetris (Cetak & AI) */}
+              {selectedStudent.testCompleted && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedIds.length > 1) {
+                        handlePrint();
+                      } else {
+                        handlePrint([selectedStudent.id]);
+                      }
+                    }}
+                    className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-xl transition-all shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>{selectedIds.length > 1 ? `Cetak PDF (${selectedIds.length} Siswa)` : 'Cetak PDF Laporan'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedIds.length > 1) {
+                        handleBatchAiAnalysis(selectedIds);
+                      } else {
+                        triggerGeminiAnalysis(selectedStudent);
+                      }
+                    }}
+                    disabled={loadingAi || loadingBatchAi}
+                    className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-700 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {loadingAi || loadingBatchAi ? (
+                      <RotateCw className="w-4 h-4 animate-spin text-teal-350" />
+                    ) : (
+                      <Sparkles className="w-4 h-4 text-teal-300 animate-pulse" />
+                    )}
+                    <span>{selectedIds.length > 1 ? `Analisis AI (${selectedIds.length} Siswa)` : (selectedStudent.aiAnalysis ? 'Perbarui Analisis AI' : 'Generasi Analisis AI')}</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {errorMsg && (
@@ -521,11 +546,11 @@ export default function ReportsTab({
         )}
       </div>
 
-      {/* Floating Print Action Bar */}
-      {selectedIds.length > 0 && (
+      {/* Floating Print Action Bar - Hanya Tampil untuk Aksi Massal (>1 Siswa) */}
+      {selectedIds.length > 1 && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-4 rounded-3xl shadow-2xl z-50 flex items-center gap-4 animate-in slide-in-from-bottom-8 print:hidden">
           <div className="flex flex-col">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Terpilih</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Terpilih Massal</span>
             <span className="text-sm font-black">{selectedIds.length} Peserta</span>
           </div>
           <div className="h-8 w-px bg-slate-700"></div>
@@ -543,14 +568,14 @@ export default function ReportsTab({
             </button>
             <button 
               onClick={() => handlePrint()}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition-all active:scale-95 shadow-md shadow-indigo-600/30"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition-all active:scale-95 shadow-md shadow-indigo-600/30 cursor-pointer"
             >
               <Printer className="w-4 h-4" />
-              Cetak PDF (A4)
+              <span>Cetak PDF ({selectedIds.length})</span>
             </button>
             <button 
               onClick={() => setSelectedIds([])}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2.5 rounded-2xl transition-all"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2.5 rounded-2xl transition-all cursor-pointer"
               title="Batal"
             >
               <X className="w-4 h-4" />
@@ -902,7 +927,7 @@ export default function ReportsTab({
 
       {/* Hidden Printable Component */}
       <PrintableReport 
-        students={selectedIds.length > 0 ? students.filter(s => selectedIds.includes(s.id)) : (selectedStudent ? [selectedStudent] : [])}
+        students={selectedIds.length > 0 ? students.filter(s => selectedIds.includes(s.id)) : (selectedStudent ? [selectedStudent] : (students.length > 0 ? [students[0]] : []))}
         questions={questions}
         dimensions={dimensions}
         logoUrl={logoUrl}

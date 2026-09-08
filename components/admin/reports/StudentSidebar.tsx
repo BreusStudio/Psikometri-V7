@@ -253,8 +253,8 @@ export default function StudentSidebar({
         )}
       </div>
 
-      {/* Bulk Print & AI Action Bar */}
-      {selectedIds.length > 0 && (
+      {/* Bulk Print & AI Action Bar - Hanya Tampil untuk Aksi Massal (>1 Peserta) */}
+      {selectedIds.length > 1 && (
         <div className="p-3 bg-indigo-50/80 border-t border-indigo-100 flex flex-col gap-2">
           <div className="text-[11px] font-bold text-indigo-900 flex justify-between items-center">
             <span>{selectedIds.length} Peserta Terpilih</span>

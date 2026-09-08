@@ -13,6 +13,7 @@ interface PrintableReportProps {
   dimensions: Dimension[];
   logoUrl?: string | null;
   selectedPackage?: Package | null;
+  isStandalone?: boolean;
 }
 
 export default function PrintableReport({
@@ -20,7 +21,8 @@ export default function PrintableReport({
   questions,
   dimensions,
   logoUrl: propLogoUrl,
-  selectedPackage
+  selectedPackage,
+  isStandalone = false
 }: PrintableReportProps) {
 
   // Package Level Dynamic Branding with fallbacks
@@ -35,19 +37,66 @@ export default function PrintableReport({
   if (students.length === 0) return null;
 
   return (
-    <div id="printable-report-container" className="hidden print:block bg-white text-black p-0 font-sans">
+    <div id="printable-report-container" className="bg-white text-black p-0 font-sans">
       <style dangerouslySetInnerHTML={{ __html: `
+        /* Tampilan Layar Biasa */
+        @media screen {
+          #printable-report-container {
+            ${isStandalone ? `
+              position: relative !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              opacity: 1 !important;
+              pointer-events: auto !important;
+              height: auto !important;
+            ` : `
+              position: absolute !important;
+              left: -99999px !important;
+              top: -99999px !important;
+              width: 210mm !important;
+              opacity: 0 !important;
+              pointer-events: none !important;
+              overflow: hidden !important;
+              height: 0 !important;
+            `}
+          }
+        }
+
+        /* Tampilan Mode Cetak (Print) */
         @media print {
           @page {
             size: A4 portrait;
-            margin: 6mm;
+            margin: 0;
           }
-          * {
+          *, *::before, *::after {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          body {
+          html, body {
             background-color: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            min-height: 100% !important;
+            overflow: visible !important;
+            position: static !important;
+          }
+          /* Sembunyikan seluruh UI web dashboard induk saat dicetak */
+          body > *:not(#printable-report-container) {
+            display: none !important;
+          }
+          #printable-report-container {
+            display: block !important;
+            visibility: visible !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            opacity: 1 !important;
+            z-index: 9999999 !important;
+            background: white !important;
             margin: 0 !important;
             padding: 0 !important;
           }
@@ -100,7 +149,7 @@ export default function PrintableReport({
             </div>
           </div>
 
-          {/* Profil Peserta Mini */}
+          {/* Profil Peserta Mini & Paket Ujian */}
           <div className="flex items-center justify-between border-2 border-slate-400 rounded-xl p-2 mb-2 bg-white shadow-xs shrink-0">
              <div className="flex items-center gap-3 px-1">
                <div>
@@ -113,6 +162,29 @@ export default function PrintableReport({
                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Kelas / Ujian</div>
                  <div className="text-[11px] font-black text-slate-900 tracking-tight leading-none">{student.classGroup}</div>
                  <div className="text-[10px] font-mono text-slate-400 mt-0.5">{new Date().toLocaleDateString('id-ID')}</div>
+               </div>
+               <div className="h-6 w-px bg-slate-300"></div>
+               <div>
+                 <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider mb-0.5">Paket Ujian & Instrumen</div>
+                 <div className="text-[10.5px] font-black text-slate-900 tracking-tight leading-none">
+                   {selectedPackage?.name || student.packageName || 'Paket Vokasi Psikotes Lengkap'}
+                 </div>
+                 <div className="flex flex-wrap items-center gap-1 mt-1">
+                   {selectedPackage?.testTypes && selectedPackage.testTypes.length > 0 ? (
+                     selectedPackage.testTypes.map((t, idx) => (
+                       <span key={idx} className="inline-block text-[8px] font-bold bg-slate-100 text-slate-800 px-1.5 py-0.2 rounded border border-slate-300 leading-none">
+                         ✓ {t}
+                       </span>
+                     ))
+                   ) : (
+                     <>
+                       <span className="inline-block text-[8px] font-bold bg-indigo-50 text-indigo-900 px-1.5 py-0.2 rounded border border-indigo-200 leading-none">✓ IQ Kognitif</span>
+                       <span className="inline-block text-[8px] font-bold bg-indigo-50 text-indigo-900 px-1.5 py-0.2 rounded border border-indigo-200 leading-none">✓ EQ Emosional</span>
+                       <span className="inline-block text-[8px] font-bold bg-indigo-50 text-indigo-900 px-1.5 py-0.2 rounded border border-indigo-200 leading-none">✓ Minat Holland (RIASEC)</span>
+                       <span className="inline-block text-[8px] font-bold bg-indigo-50 text-indigo-900 px-1.5 py-0.2 rounded border border-indigo-200 leading-none">✓ Kepribadian Kerja</span>
+                     </>
+                   )}
+                 </div>
                </div>
              </div>
              

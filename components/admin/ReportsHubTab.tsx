@@ -282,7 +282,7 @@ export default function ReportsHubTab({
   return (
     <div className="space-y-6 animate-fade-in text-left">
       {/* HEADER & GLOBAL KPI CARD */}
-      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden print:hidden">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div>
             <div className="flex items-center gap-2.5 mb-2">
@@ -370,7 +370,7 @@ export default function ReportsHubTab({
       </div>
 
       {/* SEGMENTED SUB-TAB SWITCHER */}
-      <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-3">
+      <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-3 print:hidden">
         <div className="flex items-center p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80 gap-1 shadow-inner">
           <button
             type="button"
