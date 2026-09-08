@@ -80,15 +80,13 @@ export default function PrintableReport({
             height: auto !important;
             min-height: 100% !important;
             overflow: visible !important;
-            position: static !important;
+            visibility: hidden !important;
           }
-          /* Sembunyikan seluruh UI web dashboard induk saat dicetak */
-          body > *:not(#printable-report-container) {
-            display: none !important;
+          #printable-report-container, #printable-report-container * {
+            visibility: visible !important;
           }
           #printable-report-container {
             display: block !important;
-            visibility: visible !important;
             position: absolute !important;
             top: 0 !important;
             left: 0 !important;
