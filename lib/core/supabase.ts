@@ -125,6 +125,13 @@ export function generateSqlMigrationPatch(): string {
     '-- ==============================================================================\n'
   ];
 
+  // 0. Auto Migration RPC Helper
+  lines.push('-- 0. MEMASTIKAN FUNGSI AUTO-MIGRASI AKTIF UNTUK UPDATE OTOMATIS DARI APLIKASI:');
+  lines.push('CREATE OR REPLACE FUNCTION public.execute_auto_migration(migration_sql text)');
+  lines.push('RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$');
+  lines.push('BEGIN EXECUTE migration_sql; END; $$;');
+  lines.push('GRANT EXECUTE ON FUNCTION public.execute_auto_migration(text) TO anon, authenticated, service_role;\n');
+
   // 1. Ensure tables exist first (safe DDL) with proper primary key
   lines.push('-- 1. MEMASTIKAN TABEL UTAMA SUDAH DIBUAT (SAFE DDL):');
   knownTables.forEach(table => {
@@ -392,6 +399,48 @@ export async function runSupabaseDiagnosticProbe(client: SupabaseClient): Promis
           code: error.code,
           message: error.message || error.details || 'Select query failed'
         });
+      } else {
+        // Deep probe modern columns for drift detection
+        if (tableName === 'students') {
+          const modernCols = ['allow_test_types', 'school_origin', 'cheat_warnings', 'validity_status', 'time_spent_seconds'];
+          const { error: cErr } = await client.from('students').select(modernCols.join(',')).limit(1);
+          if (cErr) {
+            for (const col of modernCols) {
+              if (cErr.message?.includes(col) || cErr.details?.includes(col) || cErr.message?.includes('does not exist') || cErr.message?.includes('Could not find')) {
+                if (!knownUnsupportedColumns.has('students')) {
+                  knownUnsupportedColumns.set('students', new Set());
+                }
+                knownUnsupportedColumns.get('students')!.add(col);
+              }
+            }
+          }
+        } else if (tableName === 'test_settings') {
+          const modernCols = ['iq_active', 'iq_duration', 'randomize_questions'];
+          const { error: cErr } = await client.from('test_settings').select(modernCols.join(',')).limit(1);
+          if (cErr) {
+            for (const col of modernCols) {
+              if (cErr.message?.includes(col) || cErr.details?.includes(col) || cErr.message?.includes('does not exist') || cErr.message?.includes('Could not find')) {
+                if (!knownUnsupportedColumns.has('test_settings')) {
+                  knownUnsupportedColumns.set('test_settings', new Set());
+                }
+                knownUnsupportedColumns.get('test_settings')!.add(col);
+              }
+            }
+          }
+        } else if (tableName === 'packages') {
+          const modernCols = ['logo_url', 'header_title', 'price_per_account'];
+          const { error: cErr } = await client.from('packages').select(modernCols.join(',')).limit(1);
+          if (cErr) {
+            for (const col of modernCols) {
+              if (cErr.message?.includes(col) || cErr.details?.includes(col) || cErr.message?.includes('does not exist') || cErr.message?.includes('Could not find')) {
+                if (!knownUnsupportedColumns.has('packages')) {
+                  knownUnsupportedColumns.set('packages', new Set());
+                }
+                knownUnsupportedColumns.get('packages')!.add(col);
+              }
+            }
+          }
+        }
       }
     } catch (e: any) {
       recentSyncErrors.push({

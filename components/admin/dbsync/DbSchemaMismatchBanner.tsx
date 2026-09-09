@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Copy, Check, RefreshCw, Code, Activity, ShieldAlert, Terminal } from 'lucide-react';
+import { AlertTriangle, Copy, Check, RefreshCw, Code, Activity, ShieldAlert, Terminal, Zap, CheckCircle2 } from 'lucide-react';
 import { 
   getAllKnownUnsupportedColumns, 
   generateSqlMigrationPatch, 
@@ -22,6 +22,8 @@ export function DbSchemaMismatchBanner({ onTriggerResync }: DbSchemaMismatchBann
   const [copied, setCopied] = useState(false);
   const [showSql, setShowSql] = useState(false);
   const [isRunningDiag, setIsRunningDiag] = useState(false);
+  const [isAutoFixing, setIsAutoFixing] = useState(false);
+  const [autoFixMsg, setAutoFixMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   const checkMismatch = () => {
     const missing = getAllKnownUnsupportedColumns();
@@ -38,6 +40,50 @@ export function DbSchemaMismatchBanner({ onTriggerResync }: DbSchemaMismatchBann
   const tables = Object.keys(missingColsMap);
   const hasErrors = recentErrors.length > 0;
 
+  const handleAutoFix = async () => {
+    setIsAutoFixing(true);
+    setAutoFixMsg(null);
+    try {
+      const sqlPatch = generateSqlMigrationPatch();
+      const res = await fetch('/api/admin/auto-migrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql: sqlPatch })
+      });
+      const data = await res.json();
+
+      if (res.ok && data?.success) {
+        setAutoFixMsg({
+          type: 'success',
+          text: 'Berhasil! Skema Supabase remote telah diperbarui otomatis. Cache di-reset.'
+        });
+        clearKnownUnsupportedColumns();
+        setMissingColsMap({});
+        setRecentErrors([]);
+        if (supabase) {
+          await runSupabaseDiagnosticProbe(supabase);
+        }
+        if (onTriggerResync) {
+          onTriggerResync();
+        }
+      } else {
+        const errMsg = data?.message || data?.error?.message || 'Gagal auto-migrate.';
+        if (data?.error?.code === 'RPC_NOT_INSTALLED') {
+          setAutoFixMsg({
+            type: 'info',
+            text: 'Fungsi auto-migrate (RPC) belum ada di Supabase. Salin SQL Patch di samping dan jalankan 1x di SQL Editor Supabase untuk mengaktifkan tombol ini.'
+          });
+        } else {
+          setAutoFixMsg({ type: 'error', text: errMsg });
+        }
+      }
+    } catch (err: any) {
+      setAutoFixMsg({ type: 'error', text: err?.message || 'Koneksi ke backend auto-migrate gagal.' });
+    } finally {
+      setIsAutoFixing(false);
+    }
+  };
+
   if (tables.length === 0 && !hasErrors) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 text-slate-300">
@@ -50,21 +96,33 @@ export function DbSchemaMismatchBanner({ onTriggerResync }: DbSchemaMismatchBann
             <p className="text-xs text-slate-400">Tidak ada perbedaan kolom atau batasan RLS yang terdeteksi saat ini.</p>
           </div>
         </div>
-        <button
-          type="button"
-          disabled={isRunningDiag}
-          onClick={async () => {
-            if (!supabase) return;
-            setIsRunningDiag(true);
-            await runSupabaseDiagnosticProbe(supabase);
-            checkMismatch();
-            setIsRunningDiag(false);
-          }}
-          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isRunningDiag ? 'animate-spin' : ''}`} />
-          {isRunningDiag ? 'Memeriksa...' : 'Jalankan Diagnostik Ulang'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={isAutoFixing}
+            onClick={handleAutoFix}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+            title="Terapkan migrasi DDL otomatis ke Supabase sekarang"
+          >
+            {isAutoFixing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 fill-current" />}
+            {isAutoFixing ? 'Memperbarui...' : '⚡ Auto-Fix Skema'}
+          </button>
+          <button
+            type="button"
+            disabled={isRunningDiag}
+            onClick={async () => {
+              if (!supabase) return;
+              setIsRunningDiag(true);
+              await runSupabaseDiagnosticProbe(supabase);
+              checkMismatch();
+              setIsRunningDiag(false);
+            }}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-xl transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRunningDiag ? 'animate-spin' : ''}`} />
+            {isRunningDiag ? 'Memeriksa...' : 'Diagnostik Ulang'}
+          </button>
+        </div>
       </div>
     );
   }
@@ -107,12 +165,21 @@ export function DbSchemaMismatchBanner({ onTriggerResync }: DbSchemaMismatchBann
               <span>⚠️ Perbedaan Skema / Izin RLS Supabase Terdeteksi</span>
             </h4>
             <p className="text-xs text-amber-200/90 font-medium leading-relaxed">
-              Supabase cloud Anda mengembalikan peringatan skema. Jalankan skrip patch SQL di bawah ini pada SQL Editor Supabase untuk memperbarui kolom dan mengizinkan akses RLS.
+              Supabase cloud Anda mengembalikan peringatan skema. Klik tombol <strong>Auto-Fix Skema</strong> atau jalankan skrip patch SQL di SQL Editor Supabase.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-auto">
+          <button
+            type="button"
+            disabled={isAutoFixing}
+            onClick={handleAutoFix}
+            className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+          >
+            {isAutoFixing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 fill-current" />}
+            {isAutoFixing ? 'Memperbarui...' : '⚡ Auto-Fix Skema'}
+          </button>
           <button
             type="button"
             onClick={handleCopySql}
@@ -131,6 +198,24 @@ export function DbSchemaMismatchBanner({ onTriggerResync }: DbSchemaMismatchBann
           </button>
         </div>
       </div>
+
+      {/* AUTO FIX FEEDBACK BANNER */}
+      {autoFixMsg && (
+        <div className={`p-3 rounded-xl border text-xs font-medium flex items-start gap-2 ${
+          autoFixMsg.type === 'success' 
+            ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200' 
+            : autoFixMsg.type === 'info'
+            ? 'bg-sky-950/60 border-sky-500/40 text-sky-200'
+            : 'bg-rose-950/60 border-rose-500/40 text-rose-200'
+        }`}>
+          {autoFixMsg.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          )}
+          <span>{autoFixMsg.text}</span>
+        </div>
+      )}
 
       {/* DETECTED MISSING COLUMNS BADGES */}
       {tables.length > 0 && (

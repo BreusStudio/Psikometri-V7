@@ -3,12 +3,29 @@
 -- ==============================================================================
 -- Jalankan seluruh isi skrip ini di SQL Editor Supabase Anda.
 -- Skrip ini dirancang idempotensial (aman dijalankan berulang kali):
+-- 0. Membuat fungsi helper otomatisasi migrasi DDL dari UI (execute_auto_migration)
 -- 1. Membuat tabel lengkap jika belum ada (CREATE TABLE IF NOT EXISTS)
 -- 2. Melakukan patch kolom secara otomatis jika tabel sudah ada (ALTER TABLE ADD COLUMN)
 -- 3. Mengatur RLS / Kebijakan Akses Penuh untuk Anon & Authenticated
 -- 4. Menginisialisasi Storage Bucket 'psychometric-assets' untuk aset soal & gambar
 -- 5. Memaksa PostgREST me-reload schema cache (NOTIFY pgrst, 'reload schema')
 -- ==============================================================================
+
+-- ------------------------------------------------------------------------------
+-- 0. MASTER HELPER: execute_auto_migration (MENGIZINKAN AUTO-UPDATE SKEMA DARI APLIKASI)
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.execute_auto_migration(migration_sql text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    EXECUTE migration_sql;
+END;
+$$;
+
+-- Berikan izin eksekusi kepada anon & authenticated
+GRANT EXECUTE ON FUNCTION public.execute_auto_migration(text) TO anon, authenticated, service_role;
 
 -- ------------------------------------------------------------------------------
 -- 1. TABEL: registered_classes (Daftar Kelas Terdaftar)
