@@ -35,24 +35,11 @@ export const GET = withApiHandler(async (req: NextRequest) => {
         query = query.or(`name.ilike.%${search}%,id.ilike.%${search}%,class_group.ilike.%${search}%`);
       }
       const { data, error } = await query;
-      if (!error && Array.isArray(data) && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         results = data.map(mapDatabaseRowToStudent);
       }
     } catch (err) {
       console.warn('[Students API] Database query caught:', err);
-    }
-  }
-
-  if (results.length === 0) {
-    results = [...INITIAL_STUDENTS];
-    if (search) {
-      const q = search.toLowerCase();
-      results = results.filter(
-        (s) =>
-          (s.name || '').toLowerCase().includes(q) ||
-          (s.id || '').toLowerCase().includes(q) ||
-          (s.classGroup && s.classGroup.toLowerCase().includes(q))
-      );
     }
   }
 

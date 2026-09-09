@@ -372,7 +372,7 @@ export const getContextLabels = (contextId?: string): ContextLabels => {
     isSchool: true,
     entitySingular: 'Siswa',
     entityPlural: 'Data Siswa (DNT)',
-    idLabel: 'NIS / ID Siswa',
+    idLabel: 'ID User / NIS',
     idPlaceholder: 'Contoh: 2024001',
     nameLabel: 'Nama Lengkap Siswa',
     namePlaceholder: 'Contoh: Ahmad Subagja',

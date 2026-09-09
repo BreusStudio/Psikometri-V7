@@ -2,7 +2,7 @@
   "columns": [
     {
       "key": "id",
-      "header": "NIS / ID",
+      "header": "ID User / NIS",
       "sortable": true,
       "render": {
         "type": "text",
@@ -76,7 +76,7 @@
   "fields": [
     {
       "key": "id",
-      "label": "NIS / ID Siswa",
+      "label": "ID User / NIS",
       "type": "text",
       "required": true,
       "placeholder": "Contoh: 2024001"

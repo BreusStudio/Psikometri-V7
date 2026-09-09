@@ -24,7 +24,7 @@ export default function SubTestPriceConfig({
     const map: Record<string, number> = {};
     const types = store.getTestTypes();
     types.forEach(t => {
-      map[t.id] = t.pricePerUser || (t.id === 'IQ' ? 10000 : t.id === 'EQ' ? 8000 : t.id === 'Holland' ? 7000 : t.id === 'Kepribadian' ? 8000 : 5000);
+      map[t.id] = t.pricePerUser ?? 0;
     });
     return map;
   });
@@ -38,7 +38,7 @@ export default function SubTestPriceConfig({
   // Helper to save sub-test price changes
   const handleSavePrices = () => {
     const updated = store.getTestTypes().map(t => {
-      const newPrice = editingPrices[t.id] !== undefined ? editingPrices[t.id] : (t.pricePerUser || 5000);
+      const newPrice = editingPrices[t.id] !== undefined ? editingPrices[t.id] : (t.pricePerUser ?? 0);
       return { ...t, pricePerUser: newPrice };
     });
 
@@ -130,7 +130,7 @@ export default function SubTestPriceConfig({
         {/* SUB-TEST PRICING GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {testTypes.map(tt => {
-            const currentPrice = editingPrices[tt.id] !== undefined ? editingPrices[tt.id] : (tt.pricePerUser || 5000);
+            const currentPrice = editingPrices[tt.id] !== undefined ? editingPrices[tt.id] : (tt.pricePerUser ?? 0);
             return (
               <div
                 key={tt.id}
@@ -209,7 +209,7 @@ export default function SubTestPriceConfig({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {testTypes.map(tt => {
                   const isChecked = simSelectedTests.includes(tt.id);
-                  const price = editingPrices[tt.id] !== undefined ? editingPrices[tt.id] : (tt.pricePerUser || 5000);
+                  const price = editingPrices[tt.id] !== undefined ? editingPrices[tt.id] : (tt.pricePerUser ?? 0);
                   return (
                     <button
                       key={tt.id}

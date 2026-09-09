@@ -4,6 +4,8 @@ import { initSupabaseClient } from "@/lib/supabase";
 import { INITIAL_TEACHERS } from "@/lib/presetQuestions";
 import { withApiHandler, apiResponse, ApiError, parseRequestBody } from "@/lib/api";
 
+export const dynamic = 'force-dynamic';
+
 export const GET = withApiHandler(async () => {
   const config = getServerConfig();
   return {

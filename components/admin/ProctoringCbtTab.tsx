@@ -17,6 +17,7 @@ interface ProctoringCbtTabProps {
 
 export default function ProctoringCbtTab({ store, students, onRefresh, showNotification }: ProctoringCbtTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'INSTANSI' | 'PERSONAL'>('ALL');
   const [serverStatus, setServerStatus] = useState<'Aktif' | 'Standby' | 'Maintenance'>('Aktif');
   const [selectedAuditStudent, setSelectedAuditStudent] = useState<Student | null>(null);
   
@@ -40,11 +41,24 @@ export default function ProctoringCbtTab({ store, students, onRefresh, showNotif
   const activeStudents = students.filter(s => s.testStarted && !s.testCompleted);
   const completedStudents = students.filter(s => s.testCompleted);
 
-  const filteredStudents = students.filter(s => 
-    (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (s.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (s.classGroup && s.classGroup.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredStudents = students.filter(s => {
+    const matchSearch = 
+      (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (s.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.schoolOrigin && s.schoolOrigin.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (s.classGroup && s.classGroup.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const isPersonal = (s.schoolOrigin || '').toLowerCase().includes('personal') || 
+                      (s.classGroup || '').toLowerCase().includes('personal') ||
+                      (s.id || '').startsWith('USR-MANDIRI');
+
+    const matchType = 
+      typeFilter === 'ALL' ||
+      (typeFilter === 'PERSONAL' && isPersonal) ||
+      (typeFilter === 'INSTANSI' && !isPersonal);
+
+    return matchSearch && matchType;
+  });
 
   const handleResetLogin = (nim: string) => {
     store.updateStudent(nim, { lockedOut: false, lockReason: null, testStarted: false });
@@ -236,19 +250,55 @@ export default function ProctoringCbtTab({ store, students, onRefresh, showNotif
         {/* RIGHT COL: STUDENTS PROCTORING LIST */}
         <div className="lg:col-span-2 space-y-4">
            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full min-h-[400px]">
-              <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-slate-500" /> Pengawasan Peserta Aktif
-                 </h3>
-                 <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      type="text" 
-                      placeholder="Cari NIK/NISN atau Nama..." 
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9 pr-4 py-2 w-full sm:w-64 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    />
+              <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col gap-3">
+                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                       <Shield className="w-4 h-4 text-slate-500" /> Pengawasan Peserta Aktif
+                    </h3>
+                    <div className="relative">
+                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                       <input 
+                         type="text" 
+                         placeholder="Cari ID User, Nama, atau Instansi..." 
+                         value={searchTerm}
+                         onChange={(e) => setSearchTerm(e.target.value)}
+                         className="pl-9 pr-4 py-2 w-full sm:w-64 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                       />
+                    </div>
+                 </div>
+
+                 {/* Category Filter Tabs */}
+                 <div className="flex items-center gap-1.5 pt-1 border-t border-slate-200/60 overflow-x-auto">
+                    <button
+                      onClick={() => setTypeFilter('ALL')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        typeFilter === 'ALL'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                    >
+                      Semua Peserta ({students.length})
+                    </button>
+                    <button
+                      onClick={() => setTypeFilter('INSTANSI')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        typeFilter === 'INSTANSI'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                    >
+                      Peserta Instansi / Sekolah ({students.filter(s => !(s.schoolOrigin || '').toLowerCase().includes('personal') && !(s.classGroup || '').toLowerCase().includes('personal')).length})
+                    </button>
+                    <button
+                      onClick={() => setTypeFilter('PERSONAL')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        typeFilter === 'PERSONAL'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                    >
+                      Peserta Mandiri / Personal ({students.filter(s => (s.schoolOrigin || '').toLowerCase().includes('personal') || (s.classGroup || '').toLowerCase().includes('personal') || (s.id || '').startsWith('USR-MANDIRI')).length})
+                    </button>
                  </div>
               </div>
               <div className="overflow-x-auto">

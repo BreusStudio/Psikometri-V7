@@ -265,7 +265,7 @@ export default function StudentsTab({
     const mapped = rows.map(r => ({
       id: String(
         r[ctx.excelTemplateHeaders.id] ||
-        r['NIS'] || r['NIS / ID'] || r['id'] || r['ID / Username'] || r['NIP'] || r['NIK'] || ''
+        r['ID User'] || r['ID'] || r['NIS'] || r['NIS / ID'] || r['id'] || r['ID / Username'] || r['NIP'] || r['NIK'] || ''
       ).trim(),
       name: String(
         r[ctx.excelTemplateHeaders.name] ||

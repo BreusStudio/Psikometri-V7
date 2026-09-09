@@ -1,13 +1,52 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import AdminDashboard from '@/components/AdminDashboard';
-import StudentExam from '@/components/StudentExam';
-import CertificateVerification from '@/components/CertificateVerification';
+import dynamic from 'next/dynamic';
 import { PsychometricStore } from '@/lib/store/PsychometricStore';
 import { LandingNavbar, LandingPageView } from '@/components/landing/LandingPageView';
-import { AuthModal } from '@/components/auth/AuthModal';
-import { Loader2, Info } from 'lucide-react';
+import { Loader2, Info, RefreshCw } from 'lucide-react';
 import { clearAllCache } from '@/lib/indexedDB';
+
+const AdminDashboard = dynamic(() => import('@/components/AdminDashboard'), {
+  loading: () => (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-4 space-y-4">
+      <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+      <p className="text-sm font-medium text-slate-300">Memuat Dashboard Admin...</p>
+      <button
+        onClick={() => window.location.reload()}
+        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold rounded-xl text-white transition-all shadow-md flex items-center gap-2 cursor-pointer mt-2"
+      >
+        <RefreshCw className="w-3.5 h-3.5" />
+        Muat Ulang Halaman
+      </button>
+    </div>
+  ),
+  ssr: false,
+});
+
+const StudentExam = dynamic(() => import('@/components/StudentExam'), {
+  loading: () => (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-4 space-y-4">
+      <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+      <p className="text-sm font-medium text-slate-300">Memuat Ruang Ujian Peserta...</p>
+      <button
+        onClick={() => window.location.reload()}
+        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold rounded-xl text-white transition-all shadow-md flex items-center gap-2 cursor-pointer mt-2"
+      >
+        <RefreshCw className="w-3.5 h-3.5" />
+        Muat Ulang Halaman
+      </button>
+    </div>
+  ),
+  ssr: false,
+});
+
+const CertificateVerification = dynamic(() => import('@/components/CertificateVerification'), {
+  ssr: false,
+});
+
+const AuthModal = dynamic(() => import('@/components/auth/AuthModal').then(mod => mod.AuthModal), {
+  ssr: false,
+});
 
 let storeInstance: PsychometricStore | null = null;
 function getStoreInstance(): PsychometricStore | null {
@@ -170,16 +209,16 @@ export default function Home() {
   const landingContent = useMemo(() => {
     if (!store) {
       return {
-        heroHeadline: 'Platform Asesmen Psikometri & Minat Bakat Karir Digital',
-        heroSubheading: 'Sistem Computer-Based Test cerdas terintegrasi untuk pemetaan kecenderungan minat karir (RIASEC), potensi kecerdasan (IQ), dinamika regulasi emosional (EQ), serta rekomendasi karir cerdas berbasis AI.',
-        feature1Title: 'Potensi Kognitif',
-        feature1Desc: 'Tes penalaran spasial & verbal',
-        feature2Title: 'Regulasi Emosi',
-        feature2Desc: 'Stabilitas emosional & stresor',
-        feature3Title: 'Kecenderungan Karir',
-        feature3Desc: 'Asesmen RIASEC Holland',
-        feature4Title: 'Rekomendasi Cerdas',
-        feature4Desc: 'Ulasan Gemini AI otomatis',
+        heroHeadline: 'Platform Asesmen Pemetaan Potensi, Talenta & Orientasi Karir Digital',
+        heroSubheading: 'Sistem Computer-Based Test terintegrasi untuk pemetaan Indeks Kemampuan Kognitif, Kecerdasan Emosional, serta Profil Gaya Kerja (RIASEC Framework) bagi Talenta, Instansi, dan Perusahaan.',
+        feature1Title: 'Cognitive Ability Index',
+        feature1Desc: 'Pemetaan penalaran logika, spasial, verbal, dan pemecahan masalah kompleks',
+        feature2Title: 'Emotional & Working Resilience',
+        feature2Desc: 'Pemetaan regulasi emosional, adaptasi stresor, dan ketahanan dinamika tim',
+        feature3Title: 'Vocational Interest Profile',
+        feature3Desc: 'Pemetaan orientasi gaya kerja berbasis kerangka kerja Holland RIASEC',
+        feature4Title: 'AI Talent Insight & Recommendations',
+        feature4Desc: 'Sintesis narasi pemetaan dan rekomendasi pengembangan talenta berbasis Gemini AI',
         contactEmail: 'support@psychometrics.id',
         contactPhone: '+62 812-3456-7890',
         contactAddress: 'Jl. Jenderal Sudirman No. 42, Jakarta Selatan, DKI Jakarta 12190',

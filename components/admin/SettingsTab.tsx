@@ -17,12 +17,70 @@ import {
   Settings as SettingsIcon,
   Package as PackageIcon,
   RefreshCw,
-  Shield
+  Shield,
+  Sparkles,
+  Shuffle,
+  ShieldCheck
 } from 'lucide-react';
 import { TestSettings } from '../../lib/types';
 import { isSupabaseConfigured } from '../../lib/supabase';
 
-// Import our other modular settings components
+// Reusable, Symmetrical, Space-Saving Setting Toggle Row (DRY & Ergonomic)
+function SettingToggleRow({
+  icon,
+  title,
+  description,
+  checked,
+  onChange,
+  badge,
+  disabled = false
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  description?: string;
+  checked: boolean;
+  onChange: (val: boolean) => void;
+  badge?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className={`p-3.5 sm:p-4 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+      checked ? 'bg-indigo-50/40 border-indigo-200' : 'bg-white border-slate-200 hover:border-slate-300'
+    } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className="space-y-0.5 text-left flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {icon && <span className="text-indigo-600 shrink-0">{icon}</span>}
+          <h4 className="text-xs font-bold text-slate-800">{title}</h4>
+          {badge && (
+            <span className="text-[9px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full">
+              {badge}
+            </span>
+          )}
+        </div>
+        {description && (
+          <p className="text-[11px] text-slate-500 font-medium leading-normal">
+            {description}
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+          checked ? 'bg-indigo-600' : 'bg-slate-300'
+        }`}
+      >
+        <span
+          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+            checked ? 'translate-x-5' : 'translate-x-0'
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
 
 
 
@@ -101,6 +159,7 @@ export default function SettingsTab({
     onConfirm: () => {}
   });
   const [activeSubTab, setActiveSubTab] = useState('cbt');
+  const [cbtCategory, setCbtCategory] = useState<'modules' | 'anticheat' | 'ai'>('modules');
   const [showCreds, setShowCreds] = useState(false);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(false);
@@ -191,8 +250,8 @@ export default function SettingsTab({
         </div>
 
         {/* Dynamic sub-tab bar inside settings */}
-        <div className="grid grid-cols-2 md:grid-cols-3 bg-slate-100 p-1 rounded-xl gap-1 w-full md:w-auto">
-          {allowedSubTabs.map((subTab, idx) => (
+        <div className="flex flex-wrap sm:flex-nowrap bg-slate-100 p-1 rounded-xl gap-1 w-full md:w-auto">
+          {allowedSubTabs.map((subTab) => (
             <button
               key={subTab.id}
               type="button"
@@ -202,12 +261,10 @@ export default function SettingsTab({
                   setQuotaInput(store.getQuotaInfo().purchased);
                 }
               }}
-              className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-center whitespace-nowrap min-h-[38px] ${
                 activeSubTab === subTab.id
-                  ? 'bg-white text-indigo-700 shadow-sm'
+                  ? 'bg-white text-indigo-700 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50/50'
-              } ${
-                idx === 2 ? 'col-span-2 md:col-span-1' : 'col-span-1'
               }`}
             >
               {subTab.icon}
@@ -226,290 +283,393 @@ export default function SettingsTab({
       
       {/* 1. CBT EXAM SETTINGS */}
       {activeSubTab === 'cbt' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm max-w-3xl mx-auto space-y-6 text-left">
-          <div className="flex items-start gap-4 border-b border-slate-100 pb-4">
-            <div className="bg-indigo-50 text-indigo-700 p-3 rounded-xl shrink-0">
-              <Sliders className="w-6 h-6" />
+        <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm max-w-4xl mx-auto space-y-5 text-left">
+          {/* Header Banner */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-150 pb-4">
+            <div className="flex items-start gap-3">
+              <div className="bg-indigo-50 text-indigo-700 p-2.5 rounded-xl shrink-0">
+                <Sliders className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Kontrol CBT, Anti-Kecurangan & AI</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Kelola parameter butir soal, proteksi smartphone, dan otomatisasi evaluasi AI.</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-800">Kontrol Aktivasi & Filter Sub-Tes CBT</h2>
-              <p className="text-xs text-slate-500 mt-1">Konfigurasikan bagian sub-tes psikometri mana saja yang aktif dan harus dikerjakan oleh siswa di ruang ujian.</p>
+
+            {/* Sub-Category Pills (Mobile-First Ergonomic Nav) */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 w-full sm:w-auto overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setCbtCategory('modules')}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  cbtCategory === 'modules'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Shuffle className="w-3.5 h-3.5" />
+                <span>Modul & Soal</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCbtCategory('anticheat')}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  cbtCategory === 'anticheat'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Anti-Kecurangan</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCbtCategory('ai')}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  cbtCategory === 'ai'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>AI & Konseling</span>
+              </button>
             </div>
           </div>
 
-          <div className="space-y-4">
-            {/* Auto AI Analysis switch */}
-            <div className="flex items-center justify-between p-4 bg-indigo-50/25 rounded-xl border border-indigo-150">
-              <div>
-                <h4 className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                  <Sliders className="w-4 h-4 text-indigo-600 animate-pulse" />
-                  Otomatisasi Analisis AI CBT Core
-                </h4>
-                <p className="text-[11px] text-indigo-900/70 leading-normal max-w-sm mt-0.5 font-medium">Siswa otomatis memicu model CBT Core AI saat mengakhiri ujian, sehingga laporan karir BK langsung siap saji.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleToggleSetting('autoAiAnalysis')}
-                className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-300 ${testSettings.autoAiAnalysis ? 'bg-indigo-600' : 'bg-slate-300'}`}
-              >
-                <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${testSettings.autoAiAnalysis ? 'translate-x-6' : 'translate-x-0'}`}></div>
-              </button>
-            </div>
+          {/* VIEW 1: MODUL & SOAL */}
+          {cbtCategory === 'modules' && (
+            <div className="space-y-4 animate-fade-in">
+              {/* Randomization Toggles */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <SettingToggleRow
+                  icon={<Shuffle className="w-4 h-4" />}
+                  title="Acak Urutan Soal Ujian"
+                  description="Butir soal diacak deterministik per peserta untuk mencegah contek-mencontek."
+                  checked={!!testSettings.randomizeQuestions}
+                  onChange={(val) => handleUpdateSetting('randomizeQuestions', val)}
+                />
 
-            {/* Divider for limits & randomization */}
-            <div className="border-t border-slate-100 my-6 pt-6">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Konfigurasi Pengacakan & Mesin Tes</h3>
-              <p className="text-[11px] text-slate-500 leading-normal font-medium">Pengaturan standardisasi butir soal ujian untuk meningkatkan keamanan, obyektivitas, dan validitas hasil psikometri siswa.</p>
-            </div>
-
-            {/* Proctoring Mode Selector */}
-            <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-200 space-y-3">
-              <div>
-                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Shield className="w-4 h-4 text-indigo-600" />
-                  Mode Pengawasan Anti-Kecurangan (Proctoring Strictness)
-                </h4>
-                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                  Pilih tingkat ketat pengawasan saat siswa mengerjakan ujian di aplikasi atau perangkat ponsel/laptop.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => handleUpdateSetting('proctoringMode', 'AUDIT_ONLY')}
-                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                    (testSettings.proctoringMode || 'AUDIT_ONLY') === 'AUDIT_ONLY'
-                      ? 'bg-emerald-50/70 border-emerald-300 ring-2 ring-emerald-500/20 text-emerald-950'
-                      : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-                      <Check className={`w-3.5 h-3.5 ${(testSettings.proctoringMode || 'AUDIT_ONLY') === 'AUDIT_ONLY' ? 'opacity-100' : 'opacity-0'}`} />
-                      Mode Audit Transparan
-                    </span>
-                    <span className="text-[9px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">Rekomendasi</span>
-                  </div>
-                  <p className="text-[10px] text-slate-600 leading-normal">
-                    Peringatan dikirim & pelanggaran dicatat di log audit tanpa mengunci layar ujian siswa. Mencegah kendala siswa terlempar keluar akibat tidak sengaja memencet notifikasi/panggilan.
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleUpdateSetting('proctoringMode', 'STRICT')}
-                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                    testSettings.proctoringMode === 'STRICT'
-                      ? 'bg-amber-50/70 border-amber-300 ring-2 ring-amber-500/20 text-amber-950'
-                      : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
-                      <Check className={`w-3.5 h-3.5 ${testSettings.proctoringMode === 'STRICT' ? 'opacity-100' : 'opacity-0'}`} />
-                      Mode Ketat (Strict Lockout)
-                    </span>
-                    <span className="text-[9px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">Seleksi Resmi</span>
-                  </div>
-                  <p className="text-[10px] text-slate-600 leading-normal">
-                    Sistem otomatis mengunci ujian (Lockout) dan meminta perizinan reset proktor setelah 3 kali terdeteksi keluar dari layar ujian.
-                  </p>
-                </button>
-              </div>
-            </div>
-
-            {/* Randomization switch */}
-            <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-xl border border-slate-200">
-              <div>
-                <h4 className="text-xs font-bold text-slate-800">Acak Urutan Soal Ujian (Randomization)</h4>
-                <p className="text-[11px] text-slate-500 leading-normal max-w-sm mt-0.5 font-medium">Soal diacak secara deterministik per siswa. Urutan butir soal siswa A dan siswa B akan berbeda untuk mencegah kecurangan contek-mencontek.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleUpdateSetting('randomizeQuestions', !testSettings.randomizeQuestions)}
-                className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-300 ${testSettings.randomizeQuestions ? 'bg-indigo-600' : 'bg-slate-300'}`}
-              >
-                <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${testSettings.randomizeQuestions ? 'translate-x-6' : 'translate-x-0'}`}></div>
-              </button>
-            </div>
-
-            {/* Extra Toggles */}
-            <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-xl border border-slate-200">
-              <div>
-                <h4 className="text-xs font-bold text-slate-800">Acak Opsi Jawaban (Randomize Choices)</h4>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleUpdateSetting('randomizeChoices', !testSettings.randomizeChoices)}
-                className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors duration-300 ${testSettings.randomizeChoices ? 'bg-indigo-600' : 'bg-slate-300'}`}
-              >
-                <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${testSettings.randomizeChoices ? 'translate-x-6' : 'translate-x-0'}`}></div>
-              </button>
-            </div>
-
-            {/* Number of Questions Limits & Duration (Dynamic based on TestTypes Master Data) */}
-            <div className="bg-slate-50/50 rounded-xl border border-slate-200 p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Sliders className="w-3.5 h-3.5 text-indigo-600" />
-                    Batas Jumlah Soal & Durasi per Sub-Tes (Dinamis Master Data)
-                  </h4>
-                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                    Konfigurasi batas jumlah soal dan durasi pengerjaan. Jenis tes baru yang dibuat di <b>Data Master &rarr; Jenis Tes</b> akan muncul secara otomatis di sini.
-                  </p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 mt-2">
-                {(store?.getTestTypes ? store.getTestTypes() : []).map((tt: any) => {
-                  const currentLimit = tt.questionLimit ?? tt.totalQuestions ?? 0;
-                  const currentDuration = tt.duration ?? tt.durationMinutes ?? 15;
-                  return (
-                    <div key={tt.id} className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5 hover:border-indigo-200 transition-all">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-bold text-slate-800 truncate block max-w-[150px]">
-                          {tt.name}
-                        </label>
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 uppercase">
-                          {tt.scoringEngine || 'standard'}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Batas Soal</span>
-                          <input
-                            type="number"
-                            min="0"
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none"
-                            value={currentLimit || ''}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0;
-                              store.saveTestType({
-                                ...tt,
-                                questionLimit: val,
-                                totalQuestions: val
-                              });
-                              if (tt.id === 'IQ') handleUpdateSetting('iqLimit', val);
-                              if (tt.id === 'EQ') handleUpdateSetting('eqLimit', val);
-                              if (tt.id === 'Holland') handleUpdateSetting('hollandLimit', val);
-                              if (tt.id === 'Kepribadian') handleUpdateSetting('kepribadianLimit', val);
-                              if (tt.id === 'Validitas') handleUpdateSetting('validitasLimit', val);
-                              onRefresh();
-                            }}
-                            placeholder="Misal: 10"
-                          />
-                        </div>
-                        <div>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Durasi (Mnt)</span>
-                          <input
-                            type="number"
-                            min="1"
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none"
-                            value={currentDuration || ''}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 15;
-                              store.saveTestType({
-                                ...tt,
-                                duration: val,
-                                durationMinutes: val
-                              });
-                              if (tt.id === 'IQ') handleUpdateSetting('iqDuration', val);
-                              if (tt.id === 'EQ') handleUpdateSetting('eqDuration', val);
-                              if (tt.id === 'Holland') handleUpdateSetting('hollandDuration', val);
-                              if (tt.id === 'Kepribadian') handleUpdateSetting('kepribadianDuration', val);
-                              if (tt.id === 'Validitas') handleUpdateSetting('validitasDuration', val);
-                              onRefresh();
-                            }}
-                            placeholder="Misal: 15"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 mt-4 shadow-sm">
-               <p className="text-[11px] text-amber-800 font-semibold leading-relaxed">
-                 <span className="font-bold flex items-center gap-1.5 mb-1 text-amber-900"><Sliders className="w-3.5 h-3.5"/> Pengumuman Pembaruan Arsitektur:</span> 
-                 Pengaturan aktivasi jenis sub-tes, durasi (menit), batas soal, dan mesin scoring sekarang dapat dikelola secara terpusat melalui menu <b>Data Master &rarr; Jenis Tes (Test Types)</b> atau langsung di atas. Setiap jenis tes baru yang dibuat secara otomatis tersinkronisasi ke modul CBT, ujian siswa, dan pembatasan Paket Lisensi/Voucher.
-               </p>
-            </div>
-
-
-            {/* AI Custom Prompt Section */}
-            <div className="border-t border-slate-100 my-6 pt-6">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Pengaturan Prompt AI CBT Core (Dynamic Prompting)</h3>
-              <p className="text-[11px] text-slate-500 leading-normal font-medium">Kustomisasikan perilaku analisis kecerdasan buatan (CBT Core AI) untuk menghasilkan kesimpulan bimbingan konseling dan rekomendasi peminatan karir siswa.</p>
-            </div>
-
-            <div className="p-5 bg-white rounded-xl border border-slate-200 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">System Instruction (Instruksi Perilaku AI)</label>
-                <textarea
-                  rows={3}
-                  value={testSettings.aiSystemInstruction ?? ''}
-                  onChange={(e) => handleUpdateSetting('aiSystemInstruction', e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  placeholder="Instruksi sistem..."
+                <SettingToggleRow
+                  icon={<Shuffle className="w-4 h-4" />}
+                  title="Acak Opsi Pilihan Jawaban"
+                  description="Pilihan A, B, C, D diacak posisinya agar kunci jawaban tidak dapat dibocorkan."
+                  checked={!!testSettings.randomizeChoices}
+                  onChange={(val) => handleUpdateSetting('randomizeChoices', val)}
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">Prompt Template (Kerangka Laporan)</label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConfirmModal({
-                        isOpen: true,
-                        title: 'Reset Kerangka Prompt',
-                        message: 'Apakah Anda yakin ingin mengatur ulang sistem instruksi dan kerangka prompt laporan konseling ke setelan bawaan? Seluruh perubahan kustom Anda akan terhapus.',
-                        onConfirm: () => {
-                          handleUpdateSetting('aiPromptTemplate', undefined);
-                          handleUpdateSetting('aiSystemInstruction', undefined);
-                          showToast('Setelan prompt berhasil dikembalikan ke bawaan');
-                        }
-                      });
-                    }}
-                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold transition-colors"
-                  >
-                    Reset Bawaan
-                  </button>
+              {/* Number of Questions Limits, Duration & Pricing */}
+              <div className="bg-slate-50/70 rounded-xl border border-slate-200 p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-indigo-600" />
+                      Batas Soal, Durasi & Tarif Per-Peserta (Real-time Supabase)
+                    </h4>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Atur limit butir soal, alokasi menit pengerjaan, dan tarif dasar paket siswa per sub-tes.
+                    </p>
+                  </div>
                 </div>
-                <textarea
-                  rows={10}
-                  value={testSettings.aiPromptTemplate ?? ''}
-                  onChange={(e) => handleUpdateSetting('aiPromptTemplate', e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  placeholder="Template prompt..."
-                />
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                  {(store?.getTestTypes ? store.getTestTypes() : []).map((tt: any) => {
+                    const currentLimit = tt.questionLimit ?? tt.totalQuestions ?? 0;
+                    const currentDuration = tt.duration ?? tt.durationMinutes ?? 15;
+                    const currentPrice = tt.pricePerUser ?? 0;
+                    return (
+                      <div key={tt.id} className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5 hover:border-indigo-200 transition-all">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-800 truncate block max-w-[140px]">
+                            {tt.name}
+                          </label>
+                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 uppercase">
+                            {tt.scoringEngine || 'standard'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Soal</span>
+                            <input
+                              type="number"
+                              min="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none"
+                              value={currentLimit || ''}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                store.saveTestType({
+                                  ...tt,
+                                  questionLimit: val,
+                                  totalQuestions: val
+                                });
+                                if (tt.id === 'IQ') handleUpdateSetting('iqLimit', val);
+                                if (tt.id === 'EQ') handleUpdateSetting('eqLimit', val);
+                                if (tt.id === 'Holland') handleUpdateSetting('hollandLimit', val);
+                                if (tt.id === 'Kepribadian') handleUpdateSetting('kepribadianLimit', val);
+                                if (tt.id === 'Validitas') handleUpdateSetting('validitasLimit', val);
+                                onRefresh();
+                              }}
+                              placeholder="10"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Menit</span>
+                            <input
+                              type="number"
+                              min="1"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none"
+                              value={currentDuration || ''}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 15;
+                                store.saveTestType({
+                                  ...tt,
+                                  duration: val,
+                                  durationMinutes: val
+                                });
+                                if (tt.id === 'IQ') handleUpdateSetting('iqDuration', val);
+                                if (tt.id === 'EQ') handleUpdateSetting('eqDuration', val);
+                                if (tt.id === 'Holland') handleUpdateSetting('hollandDuration', val);
+                                if (tt.id === 'Kepribadian') handleUpdateSetting('kepribadianDuration', val);
+                                if (tt.id === 'Validitas') handleUpdateSetting('validitasDuration', val);
+                                onRefresh();
+                              }}
+                              placeholder="15"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[9px] font-bold text-indigo-600 uppercase block mb-0.5">Tarif (Rp)</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="500"
+                              className="w-full bg-indigo-50/50 border border-indigo-200 rounded-lg px-2 py-1 text-xs font-bold text-indigo-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none font-mono"
+                              value={currentPrice || ''}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                store.saveTestType({
+                                  ...tt,
+                                  pricePerUser: val
+                                });
+                                onRefresh();
+                              }}
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
+            </div>
+          )}
 
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <span className="text-[9px] font-black uppercase text-indigo-600 block tracking-wider mb-1.5 font-sans">Variabel Pengganti yang Didukung:</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {['{studentName}', '{iqScore}', '{iqCategory}', '{eqScore}', '{eqCategory}', '{riasecR}', '{riasecI}', '{riasecA}', '{riasecS}', '{riasecE}', '{riasecC}', '{dimensionAnswers}'].map(tag => (
-                    <span
-                      key={tag}
-                      className="bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-mono px-2 py-1 rounded cursor-pointer hover:bg-indigo-100 transition-colors"
-                      title="Klik untuk menyalin"
-                      onClick={() => {
-                        navigator.clipboard.writeText(tag);
-                        showToast(`Disalin ke clipboard: ${tag}`);
-                      }}
+          {/* VIEW 2: ANTI-KECURANGAN MOBILE */}
+          {cbtCategory === 'anticheat' && (
+            <div className="space-y-4 animate-fade-in">
+              <SettingToggleRow
+                icon={<Shield className="w-4 h-4 text-indigo-600" />}
+                title="Master Switch Pengawasan Anti-Kecurangan"
+                description="Aktifkan proteksi keamanan ujian saat dikerjakan via smartphone atau laptop."
+                checked={testSettings.enableAntiCheat !== false}
+                onChange={(val) => handleUpdateSetting('enableAntiCheat', val)}
+                badge={testSettings.enableAntiCheat !== false ? 'Aktif' : 'Nonaktif'}
+              />
+
+              {testSettings.enableAntiCheat !== false ? (
+                <div className="space-y-4 pt-1">
+                  {/* Mode Selector */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateSetting('proctoringMode', 'AUDIT_ONLY')}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        (testSettings.proctoringMode || 'AUDIT_ONLY') === 'AUDIT_ONLY'
+                          ? 'bg-emerald-50/70 border-emerald-300 ring-2 ring-emerald-500/20 text-emerald-950'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                      }`}
                     >
-                      {tag}
-                    </span>
-                  ))}
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                          <Check className={`w-3.5 h-3.5 ${(testSettings.proctoringMode || 'AUDIT_ONLY') === 'AUDIT_ONLY' ? 'opacity-100' : 'opacity-0'}`} />
+                          Mode Audit Transparan
+                        </span>
+                        <span className="text-[9px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">Rekomendasi</span>
+                      </div>
+                      <p className="text-[10px] text-slate-600 leading-normal">
+                        Peringatan dikirim & pelanggaran dicatat di log audit tanpa mengunci layar ujian siswa saat ada notifikasi masuk.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateSetting('proctoringMode', 'STRICT')}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        testSettings.proctoringMode === 'STRICT'
+                          ? 'bg-amber-50/70 border-amber-300 ring-2 ring-amber-500/20 text-amber-950'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+                          <Check className={`w-3.5 h-3.5 ${testSettings.proctoringMode === 'STRICT' ? 'opacity-100' : 'opacity-0'}`} />
+                          Mode Ketat (Strict Lockout)
+                        </span>
+                        <span className="text-[9px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">Seleksi Resmi</span>
+                      </div>
+                      <p className="text-[10px] text-slate-600 leading-normal">
+                        Sistem mengunci ujian (Lockout) setelah melebihi batas batas toleransi pelanggaran dan mewajibkan reset proktor.
+                      </p>
+                    </button>
+                  </div>
+
+                  {/* Symmetrical Grid of Feature Toggles */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <SettingToggleRow
+                      title="Paksa Layar Penuh (Fullscreen)"
+                      description="Kunci browser ke mode layar penuh saat pengerjaan soal berlangsung."
+                      checked={testSettings.enableFullscreenLock !== false}
+                      onChange={(val) => handleUpdateSetting('enableFullscreenLock', val)}
+                    />
+
+                    <SettingToggleRow
+                      title="Deteksi Pindah Tab & Aplikasi"
+                      description="Deteksi siswa saat membuka WhatsApp, browser, atau aplikasi lain di smartphone."
+                      checked={testSettings.enableTabSwitchDetection !== false}
+                      onChange={(val) => handleUpdateSetting('enableTabSwitchDetection', val)}
+                    />
+
+                    <SettingToggleRow
+                      title="Blokir Copy-Paste & Klik Kanan"
+                      description="Kunci seleksi teks dan klik kanan/long-press untuk mencegah pembocoran soal."
+                      checked={testSettings.disableCopyPaste !== false}
+                      onChange={(val) => handleUpdateSetting('disableCopyPaste', val)}
+                    />
+
+                    <SettingToggleRow
+                      title="Blokir Screenshot & DevTools"
+                      description="Cegah tombol tangkapan layar (PrintScreen) dan akses Developer Console."
+                      checked={testSettings.enableDevToolsProtection !== false}
+                      onChange={(val) => handleUpdateSetting('enableDevToolsProtection', val)}
+                    />
+                  </div>
+
+                  {/* Toleransi Batas Switch Layar */}
+                  {testSettings.proctoringMode === 'STRICT' && (
+                    <div className="p-3.5 bg-amber-50/70 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-bold text-amber-900">Batas Toleransi Pelanggaran Pindah Layar</p>
+                        <p className="text-[10px] text-amber-700">Maksimal berapa kali siswa boleh keluar layar sebelum akun otomatis terkunci.</p>
+                      </div>
+                      <select
+                        value={testSettings.maxAllowedTabSwitches || 3}
+                        onChange={(e) => handleUpdateSetting('maxAllowedTabSwitches', Number(e.target.value))}
+                        className="bg-white border border-amber-300 text-amber-900 text-xs font-bold rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-amber-500 shrink-0"
+                      >
+                        <option value={1}>1 Kali (Sangat Ketat)</option>
+                        <option value={2}>2 Kali</option>
+                        <option value={3}>3 Kali (Standar)</option>
+                        <option value={5}>5 Kali (Toleransi Tinggi)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
-                <p className="text-[10px] text-slate-500 mt-2 font-medium font-sans">Klik variabel di atas untuk menyalin, lalu tempel di posisi yang Anda inginkan di dalam kerangka prompt.</p>
+              ) : (
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-center">
+                  <p className="text-xs text-slate-500 font-medium">
+                    Sistem pengawasan dinonaktifkan. Siswa dapat mengerjakan ujian tanpa batasan perpindahan tab atau penguncian layar.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VIEW 3: AI & KONSELING */}
+          {cbtCategory === 'ai' && (
+            <div className="space-y-4 animate-fade-in">
+              <SettingToggleRow
+                icon={<Sparkles className="w-4 h-4 text-indigo-600" />}
+                title="Otomatisasi Analisis AI CBT Core"
+                description="Siswa otomatis memicu model CBT Core AI saat mengakhiri ujian, sehingga laporan karir BK langsung siap saji."
+                checked={!!testSettings.autoAiAnalysis}
+                onChange={(val) => handleUpdateSetting('autoAiAnalysis', val)}
+                badge={testSettings.autoAiAnalysis ? 'Auto-Generate' : 'Manual'}
+              />
+
+              {/* Dynamic Prompting Section */}
+              <div className="p-4 sm:p-5 bg-slate-50/60 rounded-xl border border-slate-200 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                    System Instruction (Instruksi Karakter & Logika AI)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={testSettings.aiSystemInstruction ?? ''}
+                    onChange={(e) => handleUpdateSetting('aiSystemInstruction', e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    placeholder="Instruksi sistem untuk model AI..."
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                      Prompt Template (Kerangka Analisis Konseling)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmModal({
+                          isOpen: true,
+                          title: 'Reset Kerangka Prompt',
+                          message: 'Apakah Anda yakin ingin mengatur ulang sistem instruksi dan kerangka prompt laporan konseling ke setelan bawaan? Seluruh perubahan kustom Anda akan terhapus.',
+                          onConfirm: () => {
+                            handleUpdateSetting('aiPromptTemplate', undefined);
+                            handleUpdateSetting('aiSystemInstruction', undefined);
+                            showToast('Setelan prompt berhasil dikembalikan ke bawaan');
+                          }
+                        });
+                      }}
+                      className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold transition-colors cursor-pointer"
+                    >
+                      Reset Bawaan
+                    </button>
+                  </div>
+                  <textarea
+                    rows={8}
+                    value={testSettings.aiPromptTemplate ?? ''}
+                    onChange={(e) => handleUpdateSetting('aiPromptTemplate', e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    placeholder="Template prompt laporan..."
+                  />
+                </div>
+
+                <div className="p-3 bg-white rounded-lg border border-slate-200">
+                  <span className="text-[9px] font-black uppercase text-indigo-600 block tracking-wider mb-1.5 font-sans">
+                    Variabel Pengganti (Klik untuk Salin):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['{studentName}', '{iqScore}', '{iqCategory}', '{eqScore}', '{eqCategory}', '{riasecR}', '{riasecI}', '{riasecA}', '{riasecS}', '{riasecE}', '{riasecC}', '{dimensionAnswers}'].map(tag => (
+                      <span
+                        key={tag}
+                        className="bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-mono px-2 py-0.5 rounded cursor-pointer hover:bg-indigo-100 transition-colors"
+                        title="Klik untuk menyalin"
+                        onClick={() => {
+                          navigator.clipboard.writeText(tag);
+                          showToast(`Disalin ke clipboard: ${tag}`);
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 

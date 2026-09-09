@@ -63,10 +63,10 @@ export async function POST(req: NextRequest) {
 
     const ai = getGeminiClient();
 
-    const defaultPromptTemplate = `Lakukan analisis psikometrik mendalam, komprehensif, dan sangat terstruktur untuk siswa SMK bernama "{studentName}" dengan profil hasil tes sebagai berikut:
-- Tes IQ (Skala Wechsler Standar, Rata-rata Populasi = 100): Skor {iqScore} (Kategori: {iqCategory})
-- Tes EQ (Standard T-Score, Rata-rata Populasi = 50): Skor {eqScore} (Kategori: {eqCategory})
-- Tes Holland RIASEC (Skor Min: 0, Maks: 10):
+    const defaultPromptTemplate = `Lakukan analisis pemetaan potensi dan asesmen gaya kerja terstruktur untuk peserta/talenta bernama "{studentName}" dengan profil hasil sebagai berikut:
+- Indeks Kemampuan Kognitif / Cognitive Ability (Rata-rata Populasi = 100): Skor {iqScore} (Kategori: {iqCategory})
+- Indeks Regulasi Emosi & Ketahanan Kerja / Emotional Resilience (T-Score Populasi = 50): Skor {eqScore} (Kategori: {eqCategory})
+- Profil Minat Vokasional & Gaya Kerja Holland RIASEC (Skala 0 - 10):
   * R (Realistic): {riasecR}
   * I (Investigative): {riasecI}
   * A (Artistic): {riasecA}
@@ -74,23 +74,23 @@ export async function POST(req: NextRequest) {
   * E (Enterprising): {riasecE}
   * C (Conventional): {riasecC}
 
-Catatan Skala Psikometri Baku:
-- Skor EQ adalah T-Score di mana nilai 50 adalah rata-rata normal populasi yang sehat. Nilai 45-55 adalah kategori normal/cukup stabil, nilai di atas 55 adalah tinggi, dan di atas 65 sangat tinggi.
-- Skor IQ adalah Skala Wechsler di mana nilai 100 adalah rata-rata normal. Nilai 90-109 adalah normal/rata-rata, 110-119 di atas rata-rata, dan 120+ superior.
+Catatan Skala Asesmen Baku:
+- Skor Regulasi Emosi adalah T-Score di mana nilai 50 adalah rata-rata normal populasi yang sehat. Nilai 45-55 adalah kategori stabil, nilai di atas 55 adalah tinggi, dan di atas 65 sangat tinggi.
+- Indeks Kemampuan Kognitif berbasis skala populasi umum di mana nilai 100 adalah rata-rata normal. Nilai 90-109 adalah rata-rata, 110-119 di atas rata-rata, dan 120+ sangat tinggi.
 
-Analisis detail jawaban per-dimensi spesifik yang dicapai oleh siswa: {dimensionAnswers}
+Analisis detail jawaban per-dimensi spesifik yang dicapai oleh peserta: {dimensionAnswers}
 
-Berikan laporan terstruktur, kaya informasi, dan sangat detail dalam bahasa Indonesia yang berfokus pada:
-1. Ringkasan Kognitif & Logika (IQ): Jelaskan potensi pemecahan masalah secara logis-matematis, verbal, dan spasial siswa. Cantumkan rekomendasi gaya belajar terbaik (Visual, Auditori, atau Kinestetik) lengkap dengan taktik belajar mandiri konkret yang relevan bagi anak SMK.
-2. Ringkasan Kecerdasan Emosional (EQ): Analisis kestabilan emosi siswa, kesiapan mental menghadapi lingkungan kerja industri (Prakerin/Magang), cara mengelola stres di bawah tekanan, serta kecenderungan empati sosial dan kerja sama tim.
-3. Kode Tiga Huruf Holland tertinggi (contoh: RIA, CSE) beserta interpretasi mendalam untuk konteks pengembangan diri siswa SMK. Jelaskan bagaimana kombinasi tipe kepribadian karir ini memengaruhi orientasi kerja siswa.
-4. Rekomendasi Jurusan SMK yang paling cocok (sebutkan 3 jurusan vokasional nyata di Indonesia, misal: Rekayasa Perangkat Lunak, Teknik Komputer Jaringan, Desain Komunikasi Visual, Akuntansi, Teknik Kendaraan Ringan Otomotif, Bisnis Digital, dll) lengkap dengan justifikasi rasional kenapa jurusan tersebut sesuai dengan profil kognitif dan kepribadiannya.
-5. Rekomendasi Karir/Pekerjaan masa depan yang sangat relevan dan spesifik di industri saat ini.
-6. Rencana pengembangan diri terpadu: Berikan rencana aksi berurutan dan konkret bagi siswa, saran tindakan bimbingan spesifik bagi Guru BK (preventif dan kuratif), serta keterlibatan orang tua dalam mendukung iklim belajar di rumah.
-7. Identifikasi potensi masalah secara holistik: Apakah terdapat indikasi kesulitan konsentrasi, kecemasan berlebih, prokrastinasi, atau ketidakstabilan perilaku berdasarkan skor dimensi-dimensi yang rendah.
-8. Analisis psikologis mendalam khusus bagi wali kelas: Berikan panduan gaya pendampingan yang disarankan, cara berkomunikasi, dan tindakan afektif di kelas agar siswa ini merasa didukung dan potensinya berkembang secara optimal.`;
+Berikan laporan pemetaan terstruktur, konstruktif, dan profesional dalam bahasa Indonesia yang berfokus pada:
+1. Ringkasan Kemampuan Kognitif & Logika (Cognitive Ability): Jelaskan potensi pemecahan masalah secara logis, verbal, dan spasial peserta. Cantumkan rekomendasi gaya belajar/pemrosesan informasi terbaik lengkap dengan taktik pengembangan diri yang relevan.
+2. Ringkasan Ketahanan Emosional & Adaptasi Kerja (Emotional Resilience): Analisis kestabilan emosi peserta, kesiapan adaptasi di lingkungan kerja/industri, cara mengelola dinamika stres di bawah tekanan, serta kecenderungan kolaborasi tim.
+3. Kode Tiga Huruf Holland RIASEC (Vocational Interest Profile) beserta interpretasi mendalam untuk orientasi gaya kerja profesional.
+4. Rekomendasi Bidang Studi/Pendidikan atau Area Spesialisasi Kerja yang paling cocok lengkap dengan justifikasi rasional.
+5. Rekomendasi Alternatif Karir/Peran Profesional masa depan yang spesifik dan relevan di industri saat ini.
+6. Rencana pengembangan potensi terpadu: Berikan langkah aksi konkret bagi peserta, serta panduan bimbingan bagi konselor/evaluator/manajer HR.
+7. Identifikasi area pengembangan profesional (Area of Growth): Aspek yang memerlukan penguatan daya fokus, manajemen stres, atau efisiensi pengerjaan tugas.
+8. Panduan pendampingan bagi evaluator/pimpinan: Berikan rekomendasi gaya komunikasi dan lingkungan kerja yang optimal agar potensi peserta berkembang maksimal.`;
 
-    const defaultSystemInstruction = "Anda adalah seorang Psikolog Pendidikan Senior, Konselor Bimbingan Konseling (BK), dan Pakar Penyelaras Karir Vokasi (SMK) di Indonesia. Buatlah laporan analisis psikometrik yang sangat mendalam, detail, komprehensif, mendidik, humanis, dan mudah dipahami oleh guru BK, wali kelas, orang tua, dan siswa itu sendiri. Gunakan format tulisan yang rapi, berbobot, profesional, dan kaya akan insight psikologis taktis.";
+    const defaultSystemInstruction = "Anda adalah seorang Pakar Konseling Karir, Evaluator Talenta Organisasi, dan Analis Asesmen Potensi Digital Internasional. Buatlah laporan analisis pemetaan potensi yang konstruktif, berbobot, humanis, dan profesional yang mudah dipahami oleh peserta, konselor, evaluator HR, maupun pimpinan instansi. Catatan penting: Analisis ini bersifat bimbingan edukasi, pengembangan talenta, dan rekomendasi karir indikatif, bukan diagnosis medis/klinis.";
 
     const rawTemplate = aiPromptTemplate || defaultPromptTemplate;
     const sysInstruction = aiSystemInstruction || defaultSystemInstruction;

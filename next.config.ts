@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true },
   productionBrowserSourceMaps: false,
   devIndicators: false,
+  allowedDevOrigins: ['*.run.app', 'localhost:3000'],
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts'],
+  },
   images: {
     remotePatterns: [
       {
@@ -16,7 +20,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  transpilePackages: ['motion'],
 };
 
 export default nextConfig;

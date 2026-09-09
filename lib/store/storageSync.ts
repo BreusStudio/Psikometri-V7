@@ -68,9 +68,9 @@ export function loadLocalStorageState(): StoreDataState {
     testTypes: [...PRESET_TEST_TYPES],
     packages: [...PRESET_PACKAGES],
     teachers: [...INITIAL_TEACHERS],
-    students: [...INITIAL_STUDENTS],
-    registeredClasses: Array.from(new Set(INITIAL_STUDENTS.map(s => s.classGroup))).filter(Boolean).sort(),
-    registeredCohorts: Array.from(new Set(INITIAL_STUDENTS.map(s => s.angkatan))).filter(Boolean).sort((a,b) => a-b),
+    students: [],
+    registeredClasses: [],
+    registeredCohorts: [],
     vouchers: [],
     referrals: [],
     commissions: [],
@@ -106,7 +106,14 @@ export function loadLocalStorageState(): StoreDataState {
       certCounselorName: 'Prita Oktavia Surya Winanti, S. Psi',
       certCounselorTitle: 'Guru BK / Konselor Sekolah',
       certCounselorNip: '-',
-      scoringCalibration: DEFAULT_SCORING_CALIBRATION
+      scoringCalibration: DEFAULT_SCORING_CALIBRATION,
+      proctoringMode: 'AUDIT_ONLY',
+      enableAntiCheat: true,
+      enableFullscreenLock: true,
+      enableTabSwitchDetection: true,
+      maxAllowedTabSwitches: 3,
+      disableCopyPaste: true,
+      enableDevToolsProtection: true
     }
   };
 

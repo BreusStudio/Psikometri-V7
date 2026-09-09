@@ -33,6 +33,10 @@ export function useAntiCheat({
   useEffect(() => {
     if (phase !== 'testing' || !currentStudent) return;
 
+    const settings = store.getTestSettings();
+    // If master anti-cheat toggle is OFF, do not attach listeners
+    if (settings.enableAntiCheat === false) return;
+
     try {
       window.focus();
     } catch (e) {
@@ -41,11 +45,15 @@ export function useAntiCheat({
 
     localStorage.setItem('last_active_exam_timestamp', String(Date.now()));
 
+    const maxSwitches = settings.maxAllowedTabSwitches || 3;
+
     const handleCheatTrigger = (customReason?: string) => {
       if (cheatOverlayRef.current) return;
 
-      const settings = store.getTestSettings();
-      const isAuditOnly = (settings.proctoringMode || 'AUDIT_ONLY') === 'AUDIT_ONLY';
+      const currentSettings = store.getTestSettings();
+      if (currentSettings.enableAntiCheat === false) return;
+
+      const isAuditOnly = (currentSettings.proctoringMode || 'AUDIT_ONLY') === 'AUDIT_ONLY';
 
       const reason = customReason || "Sistem mendeteksi Anda meninggalkan jendela ujian (berpindah tab / meluncurkan aplikasi lain).";
       const { student: updated, locked } = store.addCheatWarning(currentStudent.id, reason);
@@ -62,7 +70,7 @@ export function useAntiCheat({
           const modeLabel = isAuditOnly ? 'MODE AUDIT (TRANSPARAN)' : 'MODE KETAT (STRICT)';
           const msgSuffix = isAuditOnly 
             ? 'Aktivitas ini telah dicatat secara transparan oleh sistem pengawas. Anda dapat melanjutkan pengerjaan ujian.'
-            : 'Peringatan ke-' + updated.cheatWarnings + ' dari 3 batas maksimal.';
+            : `Peringatan ke-${updated.cheatWarnings} dari ${maxSwitches} batas maksimal.`;
           
           setCheatMsg(
             `PERINGATAN PENGAWASAN UJIAN [${modeLabel}]\n\n${reason}\n\n${msgSuffix}`
@@ -72,7 +80,7 @@ export function useAntiCheat({
       }
     };
 
-    const heartbeatInterval = setInterval(() => {
+    const heartbeatInterval = settings.enableTabSwitchDetection !== false ? setInterval(() => {
       const lastActiveStr = localStorage.getItem('last_active_exam_timestamp');
       const now = Date.now();
 
@@ -86,23 +94,27 @@ export function useAntiCheat({
       }
 
       localStorage.setItem('last_active_exam_timestamp', String(now));
-    }, 1000);
+    }, 1000) : null;
 
     const handleVisibilityChange = () => {
+      if (settings.enableTabSwitchDetection === false) return;
       if (document.visibilityState === 'hidden' || (document as any).hidden) {
         handleCheatTrigger("Sistem mendeteksi Anda meninggalkan jendela ujian (berpindah tab / minimasi).");
       }
     };
 
     const handleWindowBlur = () => {
+      if (settings.enableTabSwitchDetection === false) return;
       handleCheatTrigger("Sistem mendeteksi Anda kehilangan fokus pada layar ujian (membuka aplikasi lain / notifikasi / panel kontrol).");
     };
 
     const handlePageHide = () => {
+      if (settings.enableTabSwitchDetection === false) return;
       handleCheatTrigger("Sistem mendeteksi halaman ujian disembunyikan (berpindah aplikasi / mengunci layar).");
     };
 
     const handleFullscreenChange = () => {
+      if (settings.enableFullscreenLock === false) return;
       if (Date.now() - testingStartTimeRef.current < 2500) {
         return;
       }
@@ -114,15 +126,18 @@ export function useAntiCheat({
     };
 
     const handleContextMenu = (e: Event) => {
+      if (settings.disableCopyPaste === false) return;
       e.preventDefault();
     };
 
     const handleCopyPaste = (e: Event) => {
+      if (settings.disableCopyPaste === false) return;
       e.preventDefault();
       handleCheatTrigger("Sistem mendeteksi aktivitas menyalin (copy/paste) yang tidak diizinkan.");
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (settings.enableDevToolsProtection === false) return;
       // PrintScreen / Screenshot interception
       if (
         e.key === 'PrintScreen' || 
@@ -134,7 +149,7 @@ export function useAntiCheat({
         try {
           navigator.clipboard.writeText('');
         } catch (_) {}
-        handleCheatTrigger("Sistem mendeteksi upaya penangkapan layar (PrintScreen/Screenshot) yang tidak dilarang.");
+        handleCheatTrigger("Sistem mendeteksi upaya penangkapan layar (PrintScreen/Screenshot) yang tidak diizinkan.");
         return;
       }
 
@@ -151,6 +166,7 @@ export function useAntiCheat({
 
     // DevTools inspection detection via window size thresholds
     const handleDevToolsCheck = () => {
+      if (settings.enableDevToolsProtection === false) return;
       const widthThreshold = window.outerWidth - window.innerWidth > 160;
       const heightThreshold = window.outerHeight - window.innerHeight > 160;
       if (widthThreshold || heightThreshold) {
@@ -183,7 +199,7 @@ export function useAntiCheat({
     document.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      clearInterval(heartbeatInterval);
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
       localStorage.removeItem('last_active_exam_timestamp');
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);

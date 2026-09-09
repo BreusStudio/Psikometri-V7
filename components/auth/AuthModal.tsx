@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   X, 
   LogIn, 
@@ -19,15 +19,35 @@ import {
   ShieldCheck,
   Lock,
   ArrowRight,
+  ArrowLeft,
+  GraduationCap,
+  CheckSquare,
+  Square,
+  Calculator,
+  Clock,
+  Receipt,
+  FileCheck2,
+  Award,
+  Sparkles,
   Info
 } from 'lucide-react';
 import { PsychometricStore } from '@/lib/store/PsychometricStore';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { mapDatabaseRowToStudent } from '@/lib/store/dbMappers';
+import { 
+  REGISTRATION_TYPE_OPTIONS, 
+  AVAILABLE_TEST_MODULES, 
+  getDynamicTestModules,
+  RegistrationCategoryType, 
+  calculateRegistrationPrice,
+  REGISTRATION_EXPIRY_HOURS
+} from '@/lib/metadata/registrationMetadata';
 
 interface AuthModalProps {
   store: PsychometricStore;
   isRegister?: boolean;
   initialRole?: 'Student' | 'Teacher';
-  initialTab?: 'personal' | 'instansi';
+  initialTab?: RegistrationCategoryType;
   onClose: () => void;
   onSuccessLogin: (user: any, role: 'admin' | 'counselor' | 'student') => void;
 }
@@ -36,7 +56,7 @@ export function AuthModal({
   store,
   isRegister = false,
   initialRole = 'Student',
-  initialTab = 'instansi',
+  initialTab = 'personal',
   onClose,
   onSuccessLogin
 }: AuthModalProps) {
@@ -49,32 +69,82 @@ export function AuthModal({
   const [loginError, setLoginError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Register State
-  const [registerTab, setRegisterTab] = useState<'instansi' | 'personal'>(initialTab);
-  const [regSuccessData, setRegSuccessData] = useState<any | null>(null);
+  // Registration 3-Step Wizard State
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [selectedCategory, setSelectedCategory] = useState<RegistrationCategoryType>(initialTab || 'personal');
+  const [selectedSubSchoolType, setSelectedSubSchoolType] = useState<string>('SMK');
+  const [selectedTestModules, setSelectedTestModules] = useState<string[]>(['IQ', 'Holland', 'EQ']);
+  const [estimatedStudentCount, setEstimatedStudentCount] = useState<number>(
+    initialTab === 'personal' ? 1 : 50
+  );
 
-  // Instansi Form State
-  const [instansiForm, setInstansiForm] = useState({
-    schoolName: '',
-    schoolType: 'SMA' as 'SMK' | 'SMA' | 'SMP' | 'SD' | 'Instansi' | 'Lainnya',
-    adminEmail: '',
-    adminPhone: '',
-    address: '',
-    estimatedStudents: 50,
-    adminPassword: ''
-  });
-
-  // Personal Form State
-  const [personalForm, setPersonalForm] = useState({
+  // Form Details (Step 3)
+  const [clientForm, setClientForm] = useState({
     name: '',
     email: '',
     phone: '',
     password: '',
     gender: 'L' as 'L' | 'P',
-    schoolOrigin: ''
+    schoolOrigin: '',
+    address: ''
   });
 
   const [formError, setFormError] = useState('');
+  const [regSuccessData, setRegSuccessData] = useState<any | null>(null);
+
+  // Selected Category Info
+  const activeCategoryOption = useMemo(() => {
+    return REGISTRATION_TYPE_OPTIONS.find(o => o.id === selectedCategory) || REGISTRATION_TYPE_OPTIONS[0];
+  }, [selectedCategory]);
+
+  // Dynamic Test Types & Pricing from Store
+  const testTypesList = useMemo(() => {
+    return store?.getTestTypes ? store.getTestTypes() : [];
+  }, [store]);
+
+  const availableTestModules = useMemo(() => {
+    return getDynamicTestModules(testTypesList);
+  }, [testTypesList]);
+
+  // Pricing Calculation
+  const priceCalculation = useMemo(() => {
+    const studentQuota = selectedCategory === 'personal' ? 1 : Math.max(1, Number(estimatedStudentCount) || 1);
+    return calculateRegistrationPrice(selectedTestModules, studentQuota, testTypesList);
+  }, [selectedTestModules, estimatedStudentCount, selectedCategory, testTypesList]);
+
+  // Handle Category Select Step 1 -> Step 2
+  const handleSelectCategory = (type: RegistrationCategoryType) => {
+    setSelectedCategory(type);
+    if (type === 'personal') {
+      setEstimatedStudentCount(1);
+      setSelectedSubSchoolType('Personal');
+    } else if (type === 'sekolah') {
+      setEstimatedStudentCount(50);
+      setSelectedSubSchoolType('SMK');
+    } else if (type === 'kampus') {
+      setEstimatedStudentCount(100);
+      setSelectedSubSchoolType('Kampus');
+    } else if (type === 'instansi' || type === 'perusahaan') {
+      setEstimatedStudentCount(30);
+      setSelectedSubSchoolType('Perusahaan');
+    }
+  };
+
+  // Toggle Test Module Selection
+  const handleToggleTestModule = (moduleId: string) => {
+    setFormError('');
+    setSelectedTestModules(prev => {
+      if (prev.includes(moduleId)) {
+        if (prev.length <= 1) {
+          setFormError('Pilih minimal 1 jenis tes untuk pendaftaran.');
+          return prev;
+        }
+        return prev.filter(id => id !== moduleId);
+      } else {
+        return [...prev, moduleId];
+      }
+    });
+  };
 
   // Handle Login Submit
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -82,7 +152,7 @@ export function AuthModal({
     setLoginError('');
 
     if (!loginIdentifier.trim()) {
-      setLoginError('Silakan masukkan ID, Username, atau Email.');
+      setLoginError('Silakan masukkan ID User, Username, Email, atau No. WhatsApp.');
       return;
     }
 
@@ -90,23 +160,76 @@ export function AuthModal({
     try {
       const cleanInput = loginIdentifier.trim();
       const cleanPass = loginPassword.trim();
+      const inputDigits = cleanInput.replace(/\D/g, '');
+
+      // Trigger sync with Supabase first if available
+      await store.syncWithSupabase().catch(() => {});
 
       if (loginRole === 'student') {
         const students = store.getStudents();
-        const found = students.find(s => 
-          (s.id && s.id.toLowerCase() === cleanInput.toLowerCase()) ||
-          (s.email && s.email.toLowerCase() === cleanInput.toLowerCase()) ||
-          (s.name && s.name.toLowerCase() === cleanInput.toLowerCase())
-        );
+        let found = students.find(s => {
+          const idMatch = Boolean(s.id && s.id.toLowerCase() === cleanInput.toLowerCase());
+          const emailMatch = Boolean(s.email && s.email.toLowerCase() === cleanInput.toLowerCase());
+          const nameMatch = Boolean(s.name && s.name.toLowerCase() === cleanInput.toLowerCase());
+          
+          const sPhoneDigits = s.phone ? s.phone.replace(/\D/g, '') : '';
+          const phoneMatch = Boolean(inputDigits.length >= 8 && sPhoneDigits.length >= 8 && 
+            (sPhoneDigits.endsWith(inputDigits) || inputDigits.endsWith(sPhoneDigits)));
+          
+          const usrIdMatch = Boolean(inputDigits.length >= 8 && s.id && s.id.toLowerCase() === `usr-${inputDigits}`.toLowerCase());
+          
+          return idMatch || emailMatch || nameMatch || phoneMatch || usrIdMatch;
+        });
 
+        // Direct Supabase query fallback if not found in local state
+        if (!found && isSupabaseConfigured && supabase) {
+          try {
+            const { data } = await supabase
+              .from('students')
+              .select('*')
+              .or(`id.ilike.${cleanInput},email.ilike.${cleanInput},phone.ilike.%${cleanInput}%`)
+              .maybeSingle();
+            
+            if (data) {
+              const mapped = mapDatabaseRowToStudent(data);
+              store.addOrUpdateStudent(mapped);
+              found = mapped;
+            }
+          } catch (err) {
+            console.error('Supabase direct login check error:', err);
+          }
+        }
+
+        // Auto-detect role fallback: if not found in students, check if registered as Teacher/PIC
         if (!found) {
-          setLoginError('ID / Username Peserta tidak ditemukan dalam sistem.');
+          const teachers = store.getTeachers();
+          const foundTeacher = teachers.find(t => 
+            Boolean(t.id && t.id.toLowerCase() === cleanInput.toLowerCase()) ||
+            Boolean(t.email && t.email.toLowerCase() === cleanInput.toLowerCase()) ||
+            Boolean(t.name && t.name.toLowerCase() === cleanInput.toLowerCase()) ||
+            Boolean(t.phone && inputDigits.length >= 8 && t.phone.replace(/\D/g, '').endsWith(inputDigits))
+          );
+
+          if (foundTeacher) {
+            setLoginError('Akun Anda terdaftar sebagai Admin/PIC Instansi. Silakan pilih tab "Guru / Admin" untuk masuk.');
+            setLoginRole('teacher');
+            setIsSubmitting(false);
+            return;
+          }
+
+          setLoginError('ID User / Email / No. WhatsApp tidak ditemukan dalam sistem. Pastikan Anda sudah terdaftar.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (found.lockedOut) {
+          setLoginError(found.lockReason || 'Akun Anda dalam status belum aktif / menunggu verifikasi pembayaran oleh Admin.');
           setIsSubmitting(false);
           return;
         }
 
         if (found.password && cleanPass && found.password !== cleanPass) {
-          setLoginError('Password / Kata Sandi salah.');
+          setLoginError('Password / Kata Sandi salah. Silakan periksa kembali.');
           setIsSubmitting(false);
           return;
         }
@@ -128,12 +251,29 @@ export function AuthModal({
           return;
         }
 
-        const foundTeacher = teachers.find(t => 
-          (t.id && t.id.toLowerCase() === cleanInput.toLowerCase()) ||
-          (t.name && t.name.toLowerCase() === cleanInput.toLowerCase())
+        let foundTeacher = teachers.find(t => 
+          Boolean(t.id && t.id.toLowerCase() === cleanInput.toLowerCase()) ||
+          Boolean(t.email && t.email.toLowerCase() === cleanInput.toLowerCase()) ||
+          Boolean(t.name && t.name.toLowerCase() === cleanInput.toLowerCase()) ||
+          Boolean(t.phone && inputDigits.length >= 8 && t.phone.replace(/\D/g, '').endsWith(inputDigits))
         );
 
+        // Auto-detect role fallback: if not found in teachers, check if registered as Student/User
         if (!foundTeacher) {
+          const students = store.getStudents();
+          const foundStudent = students.find(s => 
+            Boolean(s.id && s.id.toLowerCase() === cleanInput.toLowerCase()) ||
+            Boolean(s.email && s.email.toLowerCase() === cleanInput.toLowerCase()) ||
+            Boolean(s.phone && inputDigits.length >= 8 && s.phone.replace(/\D/g, '').endsWith(inputDigits))
+          );
+
+          if (foundStudent) {
+            setLoginError('Akun Anda terdaftar sebagai Peserta / User Personal. Silakan pilih tab "Peserta / User" untuk masuk.');
+            setLoginRole('student');
+            setIsSubmitting(false);
+            return;
+          }
+
           setLoginError('ID / Username Pengajar / Admin tidak ditemukan.');
           setIsSubmitting(false);
           return;
@@ -156,100 +296,141 @@ export function AuthModal({
     }
   };
 
-  // Handle Register Instansi Submit
-  const handleInstansiSubmit = async (e: React.FormEvent) => {
+  // Handle Registration Final Submission (Step 3)
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
-    if (!instansiForm.schoolName.trim() || !instansiForm.adminEmail.trim() || !instansiForm.adminPhone.trim()) {
-      setFormError('Mohon lengkapi Nama Instansi, Email, dan No. WhatsApp.');
+    const trimmedName = clientForm.name.trim();
+    const trimmedEmail = clientForm.email.trim();
+    const trimmedPhone = clientForm.phone.trim();
+    const cleanedPhone = trimmedPhone.replace(/[^0-9]/g, '');
+
+    if (!trimmedName || !trimmedEmail || !trimmedPhone) {
+      setFormError('Mohon lengkapi Nama, Email, dan No. WhatsApp.');
       return;
     }
 
-    // Anti-Spam / Pengecekan Eksistensi Duplikasi Email (Logic Layer Check)
-    const existingReg = store.getRegistrations().find(r => 
-      r.adminEmail && r.adminEmail.toLowerCase() === instansiForm.adminEmail.trim().toLowerCase() && 
-      r.registrationType === 'instansi'
-    );
-    if (existingReg) {
-      if (existingReg.status === 'Approved') {
-        setFormError('Instansi dengan email PIC ini sudah disetujui. Silakan login ke Dashboard Admin.');
-      } else {
-        setFormError('Instansi dengan email PIC ini sudah terdaftar dan masih dalam proses persetujuan (Menunggu).');
-      }
+    if (trimmedName.length < 3) {
+      setFormError('Nama lengkap / instansi minimal 3 karakter.');
       return;
     }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setFormError('Format email tidak valid (contoh: user@domain.com).');
+      return;
+    }
+
+    if (cleanedPhone.length < 10) {
+      setFormError('Nomor WhatsApp harus berupa angka minimal 10 digit (contoh: 081234567890).');
+      return;
+    }
+
+    if (selectedCategory === 'personal' && clientForm.password.trim() && clientForm.password.trim().length < 6) {
+      setFormError('Kata sandi akun minimal 6 karakter.');
+      return;
+    }
+
+    if (selectedTestModules.length === 0) {
+      setFormError('Pilih minimal 1 jenis modul tes psikometri.');
+      return;
+    }
+
+    const testModuleNames = availableTestModules
+      .filter(m => selectedTestModules.includes(m.id))
+      .map(m => m.name)
+      .join(', ');
 
     setIsSubmitting(true);
     try {
-      const reg = store.addRegistration({
-        schoolName: instansiForm.schoolName.trim(),
-        schoolType: instansiForm.schoolType,
-        adminEmail: instansiForm.adminEmail.trim(),
-        adminPhone: instansiForm.adminPhone.trim(),
-        address: instansiForm.address.trim() || 'Lokasi Instansi',
-        estimatedStudents: Number(instansiForm.estimatedStudents) || 50,
-        adminPassword: instansiForm.adminPassword || 'pass1234',
-        registrationType: 'instansi'
-      });
+      if (selectedCategory === 'personal') {
+        // Personal Client Flow (No Token, Direct Account Created)
+        const allStudents = store.getStudents();
+        const existingStudent = allStudents.find((s: any) => 
+          s.email && s.email.toLowerCase() === clientForm.email.trim().toLowerCase()
+        );
 
-      setRegSuccessData({
-        type: 'instansi',
-        id: reg.id,
-        schoolName: reg.schoolName,
-        email: reg.adminEmail,
-        invoice: reg.invoiceNumber || 'INV/B2B/PENDING'
-      });
-    } catch (err: any) {
-      setFormError(err.message || 'Gagal mengajukan pendaftaran instansi.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+        if (existingStudent) {
+          if (existingStudent.paymentStatus === 'PAID' || existingStudent.lockedOut === false) {
+            setFormError('Email ini sudah terdaftar dan akun Anda sudah Aktif. Silakan kembali ke menu Login.');
+            setIsSubmitting(false);
+            return;
+          }
+        }
 
-  // Handle Register Personal Submit
-  const handlePersonalSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError('');
+        const newStudent = store.registerPersonalStudent({
+          name: clientForm.name.trim(),
+          email: clientForm.email.trim(),
+          phone: clientForm.phone.trim(),
+          password: clientForm.password.trim(),
+          gender: clientForm.gender,
+          schoolOrigin: clientForm.schoolOrigin.trim() || 'Personal / Mandiri',
+          paymentAmount: priceCalculation.finalTotalAmount,
+          packageName: `Paket Mandiri (${selectedTestModules.join('+')})`,
+          selectedTestModules: selectedTestModules
+        });
 
-    if (!personalForm.name.trim() || !personalForm.email.trim()) {
-      setFormError('Mohon isi Nama Lengkap dan Email.');
-      return;
-    }
-
-    // Anti-Spam / Pengecekan Eksistensi Duplikasi Email (Logic Layer Check)
-    const allStudents = store.getStudents();
-    const existingStudent = allStudents.find((s: any) => s.email && s.email.toLowerCase() === personalForm.email.trim().toLowerCase());
-    if (existingStudent) {
-      if (existingStudent.paymentStatus === 'PAID' || existingStudent.lockedOut === false) {
-        setFormError('Email ini sudah terdaftar dan akun Anda sudah Aktif. Silakan kembali ke menu Login.');
+        setRegSuccessData({
+          type: 'personal',
+          studentId: newStudent.id,
+          name: newStudent.name,
+          email: newStudent.email,
+          phone: newStudent.phone,
+          invoice: newStudent.invoiceNumber,
+          password: newStudent.password,
+          amount: priceCalculation.finalTotalAmount,
+          selectedTests: testModuleNames,
+          expiryHours: REGISTRATION_EXPIRY_HOURS
+        });
       } else {
-        setFormError('Email ini sudah memiliki tagihan yang belum dibayar. Hubungi admin atau gunakan email lain.');
+        // B2B / Institution / School / Kampus Flow
+        const existingReg = store.getRegistrations().find(r => 
+          r.adminEmail && r.adminEmail.toLowerCase() === clientForm.email.trim().toLowerCase() && 
+          r.status === 'Pending'
+        );
+
+        if (existingReg) {
+          setFormError('Email PIC ini sudah memiliki pengajuan pendaftaran yang pending (Menunggu verifikasi).');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const resolvedSchoolType = (selectedSubSchoolType || 'SMK') as any;
+
+        const reg = store.addRegistration({
+          schoolName: clientForm.name.trim(),
+          categoryType: selectedCategory,
+          schoolType: resolvedSchoolType,
+          adminEmail: clientForm.email.trim(),
+          adminPhone: clientForm.phone.trim(),
+          address: clientForm.address.trim() || 'Lokasi Instansi',
+          estimatedStudents: priceCalculation.finalTotalAmount > 0 ? (selectedCategory === 'personal' ? 1 : Number(estimatedStudentCount)) : 50,
+          adminPassword: clientForm.password.trim() || 'pass1234',
+          registrationType: 'instansi',
+          selectedTestModules: selectedTestModules,
+          testModulesNames: testModuleNames,
+          amount: priceCalculation.finalTotalAmount,
+          totalAmount: priceCalculation.finalTotalAmount,
+          paymentStatus: 'UNPAID'
+        });
+
+        setRegSuccessData({
+          type: 'instansi',
+          id: reg.id,
+          schoolName: reg.schoolName,
+          categoryTitle: activeCategoryOption.title,
+          email: reg.adminEmail,
+          phone: reg.adminPhone,
+          invoice: reg.invoiceNumber || `INV/B2B/${reg.id}`,
+          amount: priceCalculation.finalTotalAmount,
+          estimatedStudents: reg.estimatedStudents,
+          selectedTests: testModuleNames,
+          expiryHours: REGISTRATION_EXPIRY_HOURS
+        });
       }
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const newStudent = store.registerPersonalStudent({
-        name: personalForm.name.trim(),
-        email: personalForm.email.trim(),
-        phone: personalForm.phone.trim(),
-        password: personalForm.password.trim(),
-        gender: personalForm.gender,
-        schoolOrigin: personalForm.schoolOrigin.trim() || 'Personal / Mandiri'
-      });
-
-      setRegSuccessData({
-        type: 'personal',
-        studentId: newStudent.id,
-        name: newStudent.name,
-        email: newStudent.email,
-        invoice: newStudent.invoiceNumber,
-        password: newStudent.password
-      });
     } catch (err: any) {
-      setFormError(err.message || 'Gagal melakukan pendaftaran mandiri.');
+      setFormError(err.message || 'Gagal memproses pendaftaran. Silakan coba lagi.');
     } finally {
       setIsSubmitting(false);
     }
@@ -257,7 +438,8 @@ export function AuthModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[92vh]">
+        
         {/* Header Modal */}
         <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-2.5">
@@ -266,14 +448,14 @@ export function AuthModal({
             </div>
             <div>
               <h3 className="font-bold text-base leading-tight">
-                {activeMode === 'login' ? 'Masuk ke Sistem CBT' : 'Pendaftaran Akses Baru'}
+                {activeMode === 'login' ? 'Masuk ke Sistem Asesmen' : 'Pendaftaran Akses Layanan Asesmen'}
               </h3>
-              <p className="text-[11px] text-slate-400">Psychometrics.id Platform</p>
+              <p className="text-[11px] text-slate-400">Psychometrics.id Platform Asesmen Digital</p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -285,7 +467,7 @@ export function AuthModal({
             onClick={() => { setActiveMode('login'); setRegSuccessData(null); }}
             className={`flex-1 py-3 text-center transition-all flex items-center justify-center gap-2 border-b-2 cursor-pointer ${
               activeMode === 'login'
-                ? 'border-indigo-600 text-indigo-600 bg-white'
+                ? 'border-indigo-600 text-indigo-600 bg-white font-black'
                 : 'border-transparent hover:text-slate-900'
             }`}
           >
@@ -296,7 +478,7 @@ export function AuthModal({
             onClick={() => { setActiveMode('register'); setRegSuccessData(null); }}
             className={`flex-1 py-3 text-center transition-all flex items-center justify-center gap-2 border-b-2 cursor-pointer ${
               activeMode === 'register'
-                ? 'border-indigo-600 text-indigo-600 bg-white'
+                ? 'border-indigo-600 text-indigo-600 bg-white font-black'
                 : 'border-transparent hover:text-slate-900'
             }`}
           >
@@ -348,7 +530,7 @@ export function AuthModal({
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {loginRole === 'student' ? 'ID Peserta / Username / Email' : 'Username / ID Pengajar'}
+                    {loginRole === 'student' ? 'ID User / Email / No. WhatsApp' : 'Username / ID Pengajar'}
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -356,7 +538,7 @@ export function AuthModal({
                       type="text"
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder={loginRole === 'student' ? 'Contoh: USR-123456 atau nama' : 'Contoh: admin atau nama guru'}
+                      placeholder={loginRole === 'student' ? 'Contoh: USR-08123456789, email, atau No. HP' : 'Contoh: admin atau nama guru'}
                       className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
                       required
                     />
@@ -365,7 +547,7 @@ export function AuthModal({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Kata Sandi / Password (Opsional)
+                    Kata Sandi / Password
                   </label>
                   <div className="relative">
                     <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -373,7 +555,7 @@ export function AuthModal({
                       type="password"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="Masukkan kata sandi akun"
+                      placeholder="Masukkan kata sandi akun Anda"
                       className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
                     />
                   </div>
@@ -401,41 +583,87 @@ export function AuthModal({
               </div>
 
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500 space-y-1">
-                <p className="font-semibold text-slate-700">Petunjuk Login:</p>
+                <p className="font-semibold text-slate-700">Petunjuk Akses:</p>
                 <p>&bull; Superadmin: <span className="font-mono text-slate-800">admin / admin123</span></p>
-                <p>&bull; Siswa Uji Coba: Gunakan ID Peserta dari daftar siswa terdaftar.</p>
+                <p>&bull; User / Peserta Personal: Gunakan ID User, Email, atau No. WhatsApp Anda.</p>
               </div>
             </form>
           ) : (
-            /* REGISTER MODE */
+            /* REGISTER WIZARD MODE */
             regSuccessData ? (
               /* Success Screen */
               <div className="py-4 text-center space-y-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-7 h-7" />
+                <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-8 h-8" />
                 </div>
-                <h4 className="text-lg font-bold text-slate-900">
-                  {regSuccessData.type === 'instansi' ? 'Pengajuan Instansi Berhasil!' : 'Pendaftaran Peserta Berhasil!'}
-                </h4>
+                <div>
+                  <h4 className="text-lg font-black text-slate-900">
+                    {regSuccessData.type === 'personal' ? 'Pendaftaran Peserta Berhasil!' : 'Pengajuan Kemitraan Berhasil!'}
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">Tagihan pendaftaran telah diterbitkan secara otomatis.</p>
+                </div>
                 
-                {regSuccessData.type === 'instansi' ? (
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs space-y-2 text-slate-600">
-                    <p><strong className="text-slate-800">Nama Instansi:</strong> {regSuccessData.schoolName}</p>
-                    <p><strong className="text-slate-800">Email Admin:</strong> {regSuccessData.email}</p>
-                    <p><strong className="text-slate-800">No. Invoice:</strong> {regSuccessData.invoice}</p>
-                    <p className="text-indigo-700 font-medium pt-2 border-t border-slate-200">
-                      Pengajuan Anda sedang diproses oleh Tim Admin. Silakan periksa email atau hubungi administrator untuk verifikasi.
-                    </p>
+                {regSuccessData.type === 'personal' ? (
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left text-xs space-y-2.5 text-slate-600">
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                      <span className="font-bold text-slate-700">No. Invoice Tagihan:</span>
+                      <span className="font-mono font-bold text-slate-900">{regSuccessData.invoice}</span>
+                    </div>
+                    
+                    <p><strong className="text-slate-800">ID User:</strong> <span className="font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">{regSuccessData.studentId}</span></p>
+                    <p><strong className="text-slate-800">Nama:</strong> {regSuccessData.name}</p>
+                    <p><strong className="text-slate-800">Email:</strong> {regSuccessData.email}</p>
+                    <p><strong className="text-slate-800">Password:</strong> <span className="font-mono text-slate-800">{regSuccessData.password}</span></p>
+                    <p><strong className="text-slate-800">Jenis Tes:</strong> {regSuccessData.selectedTests}</p>
+                    
+                    <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-emerald-700 font-bold">
+                      <span>Total Pembayaran:</span>
+                      <span className="text-sm font-mono text-emerald-700">Rp {regSuccessData.amount.toLocaleString('id-ID')}</span>
+                    </div>
+
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 space-y-1 text-[11px]">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <Clock className="w-4 h-4 text-amber-600" />
+                        <span>Batas Waktu Pembayaran: 2x24 Jam (48 Jam)</span>
+                      </div>
+                      <p className="text-[10px] leading-relaxed">
+                        Silakan lakukan transfer sesuai nominal invoice di atas ke rekening resmi untuk mengaktifkan akun Anda. Pendaftaran yang belum dibayar dalam 48 jam otomatis dialihkan ke Draf.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1 text-[11px] text-slate-700 font-mono">
+                      <p className="font-bold text-slate-800 font-sans">Rekening Pembayaran Resmi:</p>
+                      <p>&bull; BCA: <span className="font-bold">8920192819</span> a.n PT Psikometri CBT</p>
+                      <p>&bull; Mandiri: <span className="font-bold">1310029301923</span> a.n PT Psikometri CBT</p>
+                    </div>
                   </div>
                 ) : (
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs space-y-2 text-slate-600">
-                    <p><strong className="text-slate-800">ID Peserta:</strong> <span className="font-mono text-indigo-600 font-bold">{regSuccessData.studentId}</span></p>
-                    <p><strong className="text-slate-800">Nama:</strong> {regSuccessData.name}</p>
-                    <p><strong className="text-slate-800">Password:</strong> <span className="font-mono text-slate-800">{regSuccessData.password}</span></p>
-                    <p><strong className="text-slate-800">No. Invoice:</strong> {regSuccessData.invoice}</p>
-                    <p className="text-indigo-700 font-medium pt-2 border-t border-slate-200">
-                      Simpan ID Peserta di atas untuk login ke sesi asesmen mandiri.
-                    </p>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left text-xs space-y-2.5 text-slate-600">
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                      <span className="font-bold text-slate-700">No. Invoice B2B:</span>
+                      <span className="font-mono font-bold text-slate-900">{regSuccessData.invoice}</span>
+                    </div>
+
+                    <p><strong className="text-slate-800">Nama Pendaftar:</strong> {regSuccessData.schoolName}</p>
+                    <p><strong className="text-slate-800">Kategori:</strong> {regSuccessData.categoryTitle}</p>
+                    <p><strong className="text-slate-800">Email Admin PIC:</strong> {regSuccessData.email}</p>
+                    <p><strong className="text-slate-800">Estimasi Peserta:</strong> {regSuccessData.estimatedStudents} Akun</p>
+                    <p><strong className="text-slate-800">Jenis Tes Dicentang:</strong> {regSuccessData.selectedTests}</p>
+
+                    <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-indigo-700 font-bold">
+                      <span>Total Biaya Estimasi:</span>
+                      <span className="text-sm font-mono text-indigo-700">Rp {regSuccessData.amount.toLocaleString('id-ID')}</span>
+                    </div>
+
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 space-y-1 text-[11px]">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <Clock className="w-4 h-4 text-amber-600" />
+                        <span>Batas Verifikasi & Tagihan: 2x24 Jam</span>
+                      </div>
+                      <p className="text-[10px] leading-relaxed">
+                        Data pendaftaran Anda telah tercatat di Superadmin Console. Tim admin akan memverifikasi pengajuan dan menerbitkan token akses kolektif.
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -448,40 +676,46 @@ export function AuthModal({
                     setActiveMode('login');
                     setRegSuccessData(null);
                   }}
-                  className="w-full py-2.5 px-4 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
+                  className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
                 >
                   Lanjut ke Halaman Login
                 </button>
               </div>
             ) : (
-              /* Registration Form */
+              /* 3-STEP REGISTRATION WIZARD FORM */
               <div className="space-y-4">
-                {/* Sub Tab: Instansi vs Personal */}
-                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl text-xs font-semibold text-slate-600">
-                  <button
-                    type="button"
-                    onClick={() => setRegisterTab('instansi')}
-                    className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      registerTab === 'instansi'
-                        ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                        : 'hover:text-slate-900'
-                    }`}
-                  >
-                    <School className="w-3.5 h-3.5" />
-                    Kemitraan Instansi
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRegisterTab('personal')}
-                    className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      registerTab === 'personal'
-                        ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                        : 'hover:text-slate-900'
-                    }`}
-                  >
-                    <User className="w-3.5 h-3.5" />
-                    Peserta Mandiri
-                  </button>
+                {/* WIZARD STEPPER BAR */}
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black font-mono ${
+                      wizardStep === 1 ? 'bg-indigo-600 text-white' : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      1
+                    </span>
+                    <span className={`text-xs font-bold ${wizardStep === 1 ? 'text-indigo-600' : 'text-slate-500'}`}>Tipe</span>
+                  </div>
+
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+
+                  <div className="flex items-center gap-2">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black font-mono ${
+                      wizardStep === 2 ? 'bg-indigo-600 text-white' : wizardStep > 2 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'
+                    }`}>
+                      2
+                    </span>
+                    <span className={`text-xs font-bold ${wizardStep === 2 ? 'text-indigo-600' : 'text-slate-500'}`}>Jenis Tes</span>
+                  </div>
+
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+
+                  <div className="flex items-center gap-2">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black font-mono ${
+                      wizardStep === 3 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'
+                    }`}>
+                      3
+                    </span>
+                    <span className={`text-xs font-bold ${wizardStep === 3 ? 'text-indigo-600' : 'text-slate-500'}`}>Identitas</span>
+                  </div>
                 </div>
 
                 {formError && (
@@ -491,107 +725,258 @@ export function AuthModal({
                   </div>
                 )}
 
-                {registerTab === 'instansi' ? (
-                  /* Form Instansi */
-                  <form onSubmit={handleInstansiSubmit} className="space-y-3">
+                {/* WIZARD STEP 1: SELECT REGISTRATION TYPE */}
+                {wizardStep === 1 && (
+                  <div className="space-y-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Nama Instansi / Sekolah</label>
-                      <input
-                        type="text"
-                        value={instansiForm.schoolName}
-                        onChange={e => setInstansiForm({ ...instansiForm, schoolName: e.target.value })}
-                        placeholder="Contoh: SMA Negeri 1 Jakarta / SMK 2 Surabaya"
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                        required
-                      />
+                      <h4 className="text-sm font-bold text-slate-800">Pilih Tipe Pendaftaran Registrasi</h4>
+                      <p className="text-xs text-slate-500">Tentukan peruntukan akun atau lembaga pendaftar di bawah ini.</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Jenis Instansi</label>
-                        <select
-                          value={instansiForm.schoolType}
-                          onChange={e => setInstansiForm({ ...instansiForm, schoolType: e.target.value as any })}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                        >
-                          <option value="SMA">SMA / MA</option>
-                          <option value="SMK">SMK (Vokasi)</option>
-                          <option value="SMP">SMP / MTs</option>
-                          <option value="SD">SD / MI</option>
-                          <option value="Instansi">Perusahaan / Korporat</option>
-                          <option value="Lainnya">Lainnya</option>
-                        </select>
-                      </div>
+                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                      {REGISTRATION_TYPE_OPTIONS.map(option => {
+                        const isSelected = selectedCategory === option.id;
+                        return (
+                          <div
+                            key={option.id}
+                            onClick={() => handleSelectCategory(option.id)}
+                            className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer flex items-start justify-between gap-3 ${
+                              isSelected
+                                ? 'border-indigo-600 bg-indigo-50/50 shadow-xs'
+                                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`p-2 rounded-lg shrink-0 mt-0.5 ${
+                                isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                {option.id === 'personal' && <User className="w-4 h-4" />}
+                                {option.id === 'sekolah' && <School className="w-4 h-4" />}
+                                {option.id === 'kampus' && <GraduationCap className="w-4 h-4" />}
+                                {(option.id === 'instansi' || option.id === 'perusahaan') && <Building2 className="w-4 h-4" />}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-xs text-slate-800">{option.title}</span>
+                                  {option.badge && (
+                                    <span className="px-1.5 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-800 rounded border border-amber-200">
+                                      {option.badge}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{option.description}</p>
+                              </div>
+                            </div>
 
+                            <div className="shrink-0 mt-1">
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                isSelected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300'
+                              }`}>
+                                {isSelected && <CheckCircle2 className="w-3 h-3" />}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(2)}
+                      className="w-full py-3 px-4 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 mt-3 cursor-pointer"
+                    >
+                      Lanjut ke Pilih Jenis Tes
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* WIZARD STEP 2: CHECKLIST JENIS TES & AUTO-PRICE CALCULATOR */}
+                {wizardStep === 2 && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Estimasi Siswa</label>
+                        <h4 className="text-sm font-bold text-slate-800">Centang Jenis Tes & Kalkulator Harga</h4>
+                        <p className="text-xs text-slate-500">
+                          {selectedCategory === 'personal' ? 'Kategori: Peserta Personal Mandiri' : `Kategori: ${activeCategoryOption.title}`}
+                        </p>
+                      </div>
+                      <span className="px-2 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold rounded-lg font-mono">
+                        Langkah 2 dari 3
+                      </span>
+                    </div>
+
+                    {/* Inclusive Notice Banner (No Certificate check) */}
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] flex items-start gap-2.5">
+                      <Award className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div className="leading-relaxed">
+                        <strong className="font-bold">Otomatis Termasuk Laporan & Sertifikat:</strong> Setiap jenis tes yang Anda centang secara otomatis sudah mendapatkan <span className="underline font-bold">Sertifikat Resmi</span> & <span className="underline font-bold">Laporan Diagnostik Psikometri</span> tanpa biaya tambahan.
+                      </div>
+                    </div>
+
+                    {/* Test Module Checklist */}
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                      {availableTestModules.map(module => {
+                        const isChecked = selectedTestModules.includes(module.id);
+                        return (
+                          <div
+                            key={module.id}
+                            onClick={() => handleToggleTestModule(module.id)}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                              isChecked
+                                ? 'border-indigo-500 bg-indigo-50/40'
+                                : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              {isChecked ? (
+                                <CheckSquare className="w-4 h-4 text-indigo-600 shrink-0" />
+                              ) : (
+                                <Square className="w-4 h-4 text-slate-300 shrink-0" />
+                              )}
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-xs text-slate-800">{module.name}</span>
+                                  {module.badge && (
+                                    <span className="px-1.5 py-0.2 text-[8px] font-bold bg-indigo-100 text-indigo-700 rounded font-mono">
+                                      {module.badge}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-500">{module.description}</p>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span className="text-xs font-bold text-indigo-700 font-mono">
+                                Rp {module.pricePerUser.toLocaleString('id-ID')}
+                              </span>
+                              <span className="block text-[9px] text-slate-400">/ user</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* B2B Quota Input if applicable */}
+                    {selectedCategory !== 'personal' && (
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700">Jumlah Estimasi Peserta / Kuota:</label>
+                          <span className="text-[10px] text-slate-400">Diskon otomatis aktif untuk kuota kolektif</span>
+                        </div>
                         <input
                           type="number"
-                          value={instansiForm.estimatedStudents}
-                          onChange={e => setInstansiForm({ ...instansiForm, estimatedStudents: parseInt(e.target.value) || 10 })}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                          min={1}
+                          value={estimatedStudentCount}
+                          onChange={e => setEstimatedStudentCount(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-24 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 font-mono text-center focus:ring-2 focus:ring-indigo-500"
                         />
+                      </div>
+                    )}
+
+                    {/* Live Price Calculator Summary Box */}
+                    <div className="p-3.5 bg-slate-900 text-white rounded-xl space-y-2 font-mono text-xs">
+                      <div className="flex justify-between items-center text-slate-400 text-[11px]">
+                        <span>Harga Dasar / User ({selectedTestModules.length} Tes):</span>
+                        <span>Rp {priceCalculation.basePricePerStudent.toLocaleString('id-ID')}</span>
+                      </div>
+
+                      {selectedCategory !== 'personal' && (
+                        <div className="flex justify-between items-center text-slate-400 text-[11px]">
+                          <span>Jumlah Peserta:</span>
+                          <span>{estimatedStudentCount} Orang</span>
+                        </div>
+                      )}
+
+                      {priceCalculation.discountPercentage > 0 && (
+                        <div className="flex justify-between items-center text-emerald-400 text-[11px]">
+                          <span>Diskon Kuota Kolektif ({priceCalculation.discountPercentage}%):</span>
+                          <span>- Rp {priceCalculation.discountAmount.toLocaleString('id-ID')}</span>
+                        </div>
+                      )}
+
+                      <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-sm font-bold font-sans">
+                        <span className="text-slate-200">Total Harga Tagihan:</span>
+                        <span className="text-emerald-400 font-mono">Rp {priceCalculation.finalTotalAmount.toLocaleString('id-ID')}</span>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Email Penanggung Jawab</label>
-                        <input
-                          type="email"
-                          value={instansiForm.adminEmail}
-                          onChange={e => setInstansiForm({ ...instansiForm, adminEmail: e.target.value })}
-                          placeholder="admin@sekolah.sch.id"
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                          required
-                        />
-                      </div>
+                    {/* Navigation Buttons */}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep(1)}
+                        className="py-2.5 px-4 rounded-xl font-bold text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        Kembali
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep(3)}
+                        className="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        Lanjut Isi Data Identitas
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
+                {/* WIZARD STEP 3: CLIENT IDENTITY & FINAL SUBMISSION */}
+                {wizardStep === 3 && (
+                  <form onSubmit={handleRegisterSubmit} className="space-y-3">
+                    <div className="flex justify-between items-start">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">No. WhatsApp</label>
-                        <input
-                          type="text"
-                          value={instansiForm.adminPhone}
-                          onChange={e => setInstansiForm({ ...instansiForm, adminPhone: e.target.value })}
-                          placeholder="08123456789"
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                          required
-                        />
+                        <h4 className="text-sm font-bold text-slate-800">Isi Data Identitas Pendaftar</h4>
+                        <p className="text-xs text-slate-500">
+                          {selectedCategory === 'personal' ? 'Formulir Peserta Mandiri' : `Formulir PIC Admin ${activeCategoryOption.title}`}
+                        </p>
                       </div>
+                      <span className="px-2 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold rounded-lg font-mono">
+                        Langkah 3 dari 3
+                      </span>
                     </div>
 
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full py-3 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 mt-2 cursor-pointer"
-                    >
-                      {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <School className="w-4 h-4" />}
-                      Kirim Pengajuan Instansi
-                    </button>
-                  </form>
-                ) : (
-                  /* Form Personal */
-                  <form onSubmit={handlePersonalSubmit} className="space-y-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Nama Lengkap Peserta</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        {selectedCategory === 'personal' ? 'Nama Lengkap Peserta' : 'Nama Instansi / Sekolah / Perusahaan'}
+                      </label>
                       <input
                         type="text"
-                        value={personalForm.name}
-                        onChange={e => setPersonalForm({ ...personalForm, name: e.target.value })}
-                        placeholder="Contoh: Ahmad Rizky"
+                        value={clientForm.name}
+                        onChange={e => setClientForm({ ...clientForm, name: e.target.value })}
+                        placeholder={selectedCategory === 'personal' ? 'Contoh: Ahmad Rizky' : 'Contoh: SMA Negeri 1 Jakarta / PT Mitra Vokasi'}
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                         required
                       />
                     </div>
 
+                    {selectedCategory === 'sekolah' && (
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Jenjang Sekolah</label>
+                        <select
+                          value={selectedSubSchoolType}
+                          onChange={e => setSelectedSubSchoolType(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                        >
+                          <option value="SMK">Sekolah Menengah Kejuruan (SMK Vokasi)</option>
+                          <option value="SMA">Sekolah Menengah Atas / MA (SMA)</option>
+                          <option value="SMP">Sekolah Menengah Pertama / MTs (SMP)</option>
+                          <option value="SD">Sekolah Dasar / MI (SD)</option>
+                        </select>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Email</label>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Email Aktif</label>
                         <input
                           type="email"
-                          value={personalForm.email}
-                          onChange={e => setPersonalForm({ ...personalForm, email: e.target.value })}
-                          placeholder="peserta@gmail.com"
+                          value={clientForm.email}
+                          onChange={e => setClientForm({ ...clientForm, email: e.target.value })}
+                          placeholder="email@domain.com"
                           className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                           required
                         />
@@ -601,47 +986,93 @@ export function AuthModal({
                         <label className="block text-[11px] font-bold text-slate-700 mb-1">No. WhatsApp</label>
                         <input
                           type="text"
-                          value={personalForm.phone}
-                          onChange={e => setPersonalForm({ ...personalForm, phone: e.target.value })}
+                          value={clientForm.phone}
+                          onChange={e => setClientForm({ ...clientForm, phone: e.target.value })}
                           placeholder="08123456789"
                           className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                          required
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Password Baru</label>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Password Akun</label>
                         <input
                           type="password"
-                          value={personalForm.password}
-                          onChange={e => setPersonalForm({ ...personalForm, password: e.target.value })}
-                          placeholder="Kata sandi unik"
+                          value={clientForm.password}
+                          onChange={e => setClientForm({ ...clientForm, password: e.target.value })}
+                          placeholder="Password untuk login"
                           className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Jenis Kelamin</label>
-                        <select
-                          value={personalForm.gender}
-                          onChange={e => setPersonalForm({ ...personalForm, gender: e.target.value as 'L' | 'P' })}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                        >
-                          <option value="L">Laki-laki</option>
-                          <option value="P">Perempuan</option>
-                        </select>
+                      {selectedCategory === 'personal' ? (
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">Jenis Kelamin</label>
+                          <select
+                            value={clientForm.gender}
+                            onChange={e => setClientForm({ ...clientForm, gender: e.target.value as 'L' | 'P' })}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                          >
+                            <option value="L">Laki-laki</option>
+                            <option value="P">Perempuan</option>
+                          </select>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">Lokasi / Alamat Singkat</label>
+                          <input
+                            type="text"
+                            value={clientForm.address}
+                            onChange={e => setClientForm({ ...clientForm, address: e.target.value })}
+                            placeholder="Kota / Kabupaten"
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Order Summary & Expiry Notice */}
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5">
+                      <div className="flex justify-between items-center text-slate-700">
+                        <span>Total Tagihan:</span>
+                        <span className="font-bold font-mono text-indigo-700">Rp {priceCalculation.finalTotalAmount.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[10px] text-amber-700 font-semibold">
+                        <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>Batas Pembayaran: 2x24 Jam (Otomatis Draf jika belum dibayar)</span>
                       </div>
                     </div>
 
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full py-3 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 mt-2 cursor-pointer"
-                    >
-                      {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-                      Daftar Peserta Mandiri
-                    </button>
+                    {/* Submit Actions */}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep(2)}
+                        className="py-2.5 px-4 rounded-xl font-bold text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        Kembali
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Memproses Tagihan...
+                          </>
+                        ) : (
+                          <>
+                            <Receipt className="w-4 h-4" />
+                            Kirim & Terbitkan Invoice
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </form>
                 )}
               </div>

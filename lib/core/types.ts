@@ -285,6 +285,13 @@ export interface TestSettings {
   certCounselorTitle?: string;
   certCounselorNip?: string;
   scoringCalibration?: ScoringCalibrationSettings;
+  proctoringMode?: 'AUDIT_ONLY' | 'STRICT';
+  enableAntiCheat?: boolean;
+  enableFullscreenLock?: boolean;
+  enableTabSwitchDetection?: boolean;
+  maxAllowedTabSwitches?: number;
+  disableCopyPaste?: boolean;
+  enableDevToolsProtection?: boolean;
 }
 
 export interface Voucher {
@@ -388,21 +395,28 @@ export interface RegisteredCohort {
 export interface RegistrationRequest {
   id: string;
   registrationType?: 'instansi' | 'personal';
+  categoryType?: 'personal' | 'sekolah' | 'kampus' | 'instansi' | 'perusahaan';
   schoolName: string;
   adminEmail: string;
   adminPhone: string;
   address: string;
   estimatedStudents: number;
-  schoolType: 'SMK' | 'SMA' | 'SMP' | 'SD' | 'Instansi' | 'Lainnya';
-  status: 'Pending' | 'Approved' | 'Rejected';
-  paymentStatus?: 'UNPAID' | 'PAID' | 'REJECTED';
+  schoolType: 'SMK' | 'SMA' | 'SMP' | 'SD' | 'Kampus' | 'Perusahaan' | 'Instansi' | 'Lainnya' | 'Personal';
+  selectedTestModules?: string[];
+  testModulesNames?: string;
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Draft' | 'Expired';
+  paymentStatus?: 'UNPAID' | 'PAID' | 'REJECTED' | 'Unpaid' | 'Paid';
   invoiceNumber?: string;
   amount?: number;
+  totalAmount?: number;
   paymentVerifiedAt?: string | null;
   paymentVerifiedBy?: string | null;
   requestedAt: string;
+  submittedAt?: string;
+  expiresAt?: string;
   adminPassword?: string;
   personalStudentId?: string;
+  rejectionReason?: string;
 }
 
 export interface LandingPageContent {

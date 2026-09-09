@@ -16,6 +16,7 @@ import { syncManager } from '@/lib/api';
 import { sanitizeQuestion, sanitizeQuestionsList, filterQuestionsForStudent } from '../core/questionSanitizer';
 import { resolveEffectiveTestType } from '../core/testTypeResolver';
 import { CANONICAL_DIMENSIONS, normalizeCanonicalDimension } from '../metadata/canonicalDimensions';
+import { isRegistrationExpired, REGISTRATION_EXPIRY_HOURS } from '../metadata/registrationMetadata';
 
 export class PsychometricStore {
   private state: StoreDataState;
@@ -47,23 +48,6 @@ export class PsychometricStore {
     const settings = this.state.testSettings;
 
     for (const student of this.state.students) {
-      // Restore preset student data if scores were zeroed out
-      const preset = INITIAL_STUDENTS.find(p => p.id === student.id);
-      if (preset) {
-        if (!student.riasecScores || Object.values(student.riasecScores).every(v => v === 0)) {
-          student.riasecScores = { ...preset.riasecScores };
-        }
-        if (!student.dimensionScores || Object.values(student.dimensionScores).every(v => v === 0)) {
-          student.dimensionScores = { ...preset.dimensionScores };
-        }
-        if (student.iqScore === 0 || student.iqScore === null) {
-          student.iqScore = preset.iqScore;
-        }
-        if (student.eqScore === 0 || student.eqScore === null) {
-          student.eqScore = preset.eqScore;
-        }
-      }
-
       if (student.testCompleted || (student.answers && Object.keys(student.answers).length > 0) || student.iqScore !== null) {
         calculateStudentScores(student, questions, dimensions, settings);
         modified = true;
@@ -376,15 +360,126 @@ export class PsychometricStore {
   }
 
   public deletePurchase(id: string): void {
-    const purchase = this.state.purchases.find(x => x.id === id);
+    this.deletePurchaseCascade(id);
+  }
+
+  public archivePurchase(idOrCode: string): boolean {
+    const purchase = this.state.purchases.find(x => x.id === idOrCode || x.generatedVoucher === idOrCode);
+    const voucherCode = purchase?.generatedVoucher || idOrCode;
+    const voucher = this.state.vouchers.find(v => v.code.toUpperCase() === voucherCode.toUpperCase());
+    const buyerName = purchase?.buyerName || purchase?.schoolName || '';
+
     if (purchase) {
-      if (purchase.generatedVoucher) {
-        this.deleteVoucher(purchase.generatedVoucher);
-      }
-      this.state.purchases = this.state.purchases.filter(x => x.id !== id);
-      this.saveToStorage();
-      this.notifyListeners();
+      (purchase as any).status = 'Archived';
     }
+
+    if (voucher) {
+      voucher.active = false;
+    }
+
+    if (buyerName) {
+      const lowerName = buyerName.toLowerCase().trim();
+      this.state.students.forEach(s => {
+        if ((s.schoolOrigin || s.school_origin || '').toLowerCase().trim() === lowerName || s.invoiceNumber === purchase?.invoiceNumber) {
+          s.lockedOut = true;
+          s.registrationStatus = 'DRAFT';
+        }
+      });
+    }
+
+    if (voucher && voucher.generatedAccounts) {
+      const accUsernames = voucher.generatedAccounts.map(a => a.username);
+      this.state.students.forEach(s => {
+        if (accUsernames.includes(s.id)) {
+          s.lockedOut = true;
+          s.registrationStatus = 'DRAFT';
+        }
+      });
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      if (purchase) {
+        supabase.from('purchases').update({ status: 'Archived' }).eq('id', purchase.id).then();
+      }
+      if (voucher) {
+        supabase.from('vouchers').update({ active: false }).eq('code', voucher.code).then();
+      }
+    }
+
+    this.saveToStorage();
+    this.notifyListeners();
+    return true;
+  }
+
+  public deletePurchaseCascade(idOrCode: string): boolean {
+    const purchase = this.state.purchases.find(x => x.id === idOrCode || x.generatedVoucher === idOrCode);
+    const voucherCode = purchase?.generatedVoucher || idOrCode;
+    const voucher = this.state.vouchers.find(v => v.code.toUpperCase() === voucherCode.toUpperCase());
+    const buyerName = purchase?.buyerName || purchase?.schoolName || '';
+    const buyerEmail = purchase?.email || (purchase as any)?.buyerEmail || '';
+
+    let studentIdsToDelete: string[] = [];
+
+    if (voucher && voucher.generatedAccounts) {
+      studentIdsToDelete.push(...voucher.generatedAccounts.map(a => a.username));
+    }
+
+    if (buyerName) {
+      const lowerName = buyerName.toLowerCase().trim();
+      const matchingStudents = this.state.students.filter(s => 
+        (s.schoolOrigin || s.school_origin || '').toLowerCase().trim() === lowerName ||
+        (purchase && s.invoiceNumber === purchase.invoiceNumber) ||
+        (buyerEmail && s.email && s.email.toLowerCase() === buyerEmail.toLowerCase())
+      );
+      studentIdsToDelete.push(...matchingStudents.map(s => s.id));
+    }
+
+    studentIdsToDelete = Array.from(new Set(studentIdsToDelete));
+
+    if (studentIdsToDelete.length > 0) {
+      this.state.students = this.state.students.filter(s => !studentIdsToDelete.includes(s.id));
+      if (isSupabaseConfigured && supabase) {
+        supabase.from('student_answers').delete().in('student_id', studentIdsToDelete).then();
+        supabase.from('students').delete().in('id', studentIdsToDelete).then();
+      }
+    }
+
+    if (buyerEmail || (purchase && purchase.invoiceNumber)) {
+      this.state.registrations = (this.state.registrations || []).filter(r => 
+        r.adminEmail !== buyerEmail && r.invoiceNumber !== purchase?.invoiceNumber
+      );
+      if (isSupabaseConfigured && supabase) {
+        if (buyerEmail) {
+          supabase.from('registration_requests').delete().eq('admin_email', buyerEmail).then();
+        }
+        if (purchase && purchase.invoiceNumber) {
+          supabase.from('registration_requests').delete().eq('invoice_number', purchase.invoiceNumber).then();
+        }
+      }
+    }
+
+    if (voucherCode) {
+      this.state.vouchers = this.state.vouchers.filter(v => v.code.toUpperCase() !== voucherCode.toUpperCase());
+      if (isSupabaseConfigured && supabase) {
+        supabase.from('vouchers').delete().eq('code', voucherCode).then();
+      }
+    }
+
+    if (purchase) {
+      this.state.purchases = this.state.purchases.filter(x => x.id !== purchase.id);
+      if (isSupabaseConfigured && supabase) {
+        supabase.from('purchases').delete().eq('id', purchase.id).then();
+      }
+    } else if (idOrCode) {
+      this.state.purchases = this.state.purchases.filter(x => x.id !== idOrCode);
+      if (isSupabaseConfigured && supabase) {
+        supabase.from('purchases').delete().eq('id', idOrCode).then();
+      }
+    }
+
+    this.saveToStorage();
+    this.notifyListeners();
+    return true;
   }
 
   // Commission Operations
@@ -418,41 +513,89 @@ export class PsychometricStore {
 
   // Registration Operations
   public getRegistrations(): RegistrationRequest[] {
-    return this.state.registrations || [];
+    if (!this.state.registrations) {
+      this.state.registrations = [];
+    }
+    this.checkAndAutoExpireRegistrations();
+    return this.state.registrations;
   }
 
-  public addRegistration(req: Omit<RegistrationRequest, 'id' | 'status' | 'requestedAt'>): RegistrationRequest {
+  public checkAndAutoExpireRegistrations(): void {
+    if (!this.state.registrations || this.state.registrations.length === 0) return;
+    let mutated = false;
+
+    this.state.registrations.forEach(r => {
+      // Auto-expire unpaid/pending registrations older than 2x24h (48 Hours)
+      if (r.status === 'Pending' || (r.status as string) === 'Unpaid') {
+        const timeRef = r.submittedAt || r.requestedAt;
+        if (timeRef && isRegistrationExpired(timeRef, REGISTRATION_EXPIRY_HOURS)) {
+          r.status = 'Draft';
+          r.paymentStatus = 'UNPAID';
+          mutated = true;
+
+          // If personal student exists, set lock reason
+          if (r.personalStudentId && this.state.students) {
+            const student = this.state.students.find(s => s.id === r.personalStudentId);
+            if (student && student.paymentStatus !== 'PAID') {
+              student.registrationStatus = 'PENDING';
+              student.lockedOut = true;
+              student.lockReason = 'Batas waktu pembayaran (2x24 Jam) telah kadaluarsa. Status pendaftaran dialihkan ke Draf.';
+            }
+          }
+        }
+      }
+    });
+
+    if (mutated) {
+      this.saveToStorage();
+    }
+  }
+
+  public addRegistration(req: Omit<RegistrationRequest, 'id' | 'status' | 'requestedAt'> & Partial<RegistrationRequest>): RegistrationRequest {
+    const nowIso = new Date().toISOString();
+    const expiryDateIso = new Date(Date.now() + REGISTRATION_EXPIRY_HOURS * 60 * 60 * 1000).toISOString();
+
     const newReq: RegistrationRequest = {
       ...req,
-      id: 'REG-' + Math.floor(10000 + Math.random() * 90000),
+      id: req.id || 'REG-' + Math.floor(10000 + Math.random() * 90000),
+      categoryType: req.categoryType || (req.registrationType === 'personal' ? 'personal' : 'sekolah'),
+      schoolType: req.schoolType || 'SMK',
+      selectedTestModules: req.selectedTestModules || ['IQ', 'Holland'],
+      testModulesNames: req.testModulesNames || (req.selectedTestModules ? req.selectedTestModules.join(', ') : 'IQ, Holland RIASEC'),
       status: 'Pending',
-      requestedAt: new Date().toISOString()
+      paymentStatus: req.paymentStatus || 'UNPAID',
+      amount: req.amount || req.totalAmount || 0,
+      totalAmount: req.totalAmount || req.amount || 0,
+      requestedAt: nowIso,
+      submittedAt: nowIso,
+      expiresAt: expiryDateIso
     };
     if (!this.state.registrations) {
       this.state.registrations = [];
     }
-    this.state.registrations.push(newReq);
+    this.state.registrations.unshift(newReq);
     this.saveToStorage();
     this.notifyListeners();
     return newReq;
   }
 
-  public updateRegistrationStatus(id: string, status: 'Pending' | 'Approved' | 'Rejected'): void {
+  public updateRegistrationStatus(id: string, status: 'Pending' | 'Approved' | 'Rejected' | 'Draft' | 'Expired', rejectionReason?: string): void {
     if (!this.state.registrations) return;
     const reg = this.state.registrations.find(r => r.id === id);
     if (reg) {
       const oldStatus = reg.status;
       reg.status = status;
+      if (rejectionReason) reg.rejectionReason = rejectionReason;
       
-      // If approved and wasn't approved before, create the admin account (only for instansi)
-      if (status === 'Approved' && oldStatus !== 'Approved' && reg.registrationType !== 'personal') {
+      // If approved and wasn't approved before, create the admin account and auto-provision students (for instansi/b2b)
+      if (status === 'Approved' && oldStatus !== 'Approved' && reg.registrationType !== 'personal' && reg.categoryType !== 'personal') {
         const username = reg.adminEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '_') + '_' + Math.floor(100 + Math.random() * 900);
         
         let context = 'school_smk';
         if (reg.schoolType === 'SMA') context = 'school_sma';
         else if (reg.schoolType === 'SMP') context = 'school_smp';
         else if (reg.schoolType === 'SD') context = 'school_sd';
-        else if (reg.schoolType === 'Instansi') context = 'perusahaan';
+        else if (reg.schoolType === 'Instansi' || reg.schoolType === 'Perusahaan') context = 'perusahaan';
         else if (reg.schoolType === 'Lainnya') context = 'personal';
 
         const newAdmin: Teacher = {
@@ -467,7 +610,39 @@ export class PsychometricStore {
         if (!this.state.teachers) {
           this.state.teachers = [];
         }
-        this.state.teachers.push(newAdmin);
+        if (!this.state.teachers.some(t => t.id === newAdmin.id || (t.email && t.email === reg.adminEmail))) {
+          this.state.teachers.push(newAdmin);
+        }
+
+        // Auto-provision initial student user accounts for the institution if none exist yet
+        const existingSchoolStudents = this.state.students.filter(s => 
+          (s.schoolOrigin || s.school_origin || '').trim().toLowerCase() === reg.schoolName.trim().toLowerCase()
+        );
+
+        if (existingSchoolStudents.length === 0) {
+          const countToCreate = reg.estimatedStudents && reg.estimatedStudents > 0 ? Math.min(reg.estimatedStudents, 100) : 20;
+          const slug = reg.schoolName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6) || 'SCH';
+          const selectedModules = reg.selectedTestModules && reg.selectedTestModules.length > 0 ? reg.selectedTestModules : ['IQ', 'EQ', 'Holland'];
+
+          for (let i = 1; i <= countToCreate; i++) {
+            const numStr = i.toString().padStart(2, '0');
+            const studentId = `USR-${slug}-${numStr}`;
+            const studentName = `Peserta ${i} (${reg.schoolName})`;
+
+            this.addStudent({
+              id: studentId,
+              name: studentName,
+              schoolOrigin: reg.schoolName,
+              classGroup: reg.schoolType || 'Instansi',
+              angkatan: new Date().getFullYear(),
+              gender: i % 2 === 0 ? 'L' : 'P',
+              password: reg.adminPassword || 'user123',
+              paymentStatus: 'PAID',
+              registrationStatus: 'APPROVED',
+              allowedTests: selectedModules,
+            }, true);
+          }
+        }
       }
     }
     this.saveToStorage({ teachers: true });
@@ -1192,6 +1367,7 @@ export class PsychometricStore {
     packageName?: string;
     paymentAmount?: number;
     paymentProofUrl?: string;
+    selectedTestModules?: string[];
   }): Student {
     const rawIdNumber = Math.floor(100000 + Math.random() * 900000);
     const personalId = `USR-${rawIdNumber}`;
@@ -1202,6 +1378,9 @@ export class PsychometricStore {
     const invoiceNumber = `INV/${year}/${month}/${rawIdNumber}`;
     const assessmentFee = data.paymentAmount || 75000;
     const indonesianPhone = data.phone ? PsychometricStore.formatIndonesianWhatsAppNumber(data.phone) : '';
+    const nowIso = now.toISOString();
+    const expiryIso = new Date(now.getTime() + REGISTRATION_EXPIRY_HOURS * 60 * 60 * 1000).toISOString();
+    const activeTestModules = data.selectedTestModules || ['IQ', 'Holland', 'EQ', 'Kepribadian', 'Validitas'];
 
     const newStudent: Student = {
       id: personalId,
@@ -1244,7 +1423,7 @@ export class PsychometricStore {
       cheatWarnings: 0,
       aiAnalysis: null,
       completedTests: [],
-      allowedTests: ['IQ', 'EQ', 'Holland', 'Kepribadian', 'Validitas']
+      allowedTests: activeTestModules
     };
 
     // Add to state
@@ -1258,17 +1437,24 @@ export class PsychometricStore {
       id: `REG-P-${rawIdNumber}`,
       schoolName: data.name.trim(),
       schoolType: 'Personal',
+      categoryType: 'personal',
       adminEmail: data.email.trim(),
       adminPhone: indonesianPhone || data.phone || '-',
       address: data.schoolOrigin || 'Personal / Mandiri',
       estimatedStudents: 1,
       adminPassword: cleanPassword,
       status: 'Pending',
-      submittedAt: now.toISOString(),
+      submittedAt: nowIso,
+      requestedAt: nowIso,
+      expiresAt: expiryIso,
       invoiceNumber: invoiceNumber,
+      amount: assessmentFee,
       totalAmount: assessmentFee,
-      paymentStatus: 'Unpaid',
-      registrationType: 'personal'
+      paymentStatus: 'UNPAID',
+      registrationType: 'personal',
+      personalStudentId: personalId,
+      selectedTestModules: activeTestModules,
+      testModulesNames: activeTestModules.join(', ')
     });
 
     this.saveToStorage({ studentId: personalId });
@@ -1277,7 +1463,59 @@ export class PsychometricStore {
   }
 
   public approveStudentRegistration(studentId: string, verifierName: string = 'Admin'): boolean {
-    const student = this.state.students.find(s => s.id === studentId);
+    let student = this.state.students.find(s => s.id === studentId);
+    
+    // Fallback: search by email/invoice if not found by ID
+    const reg = this.state.registrations?.find(r => 
+      r.id === studentId || 
+      r.personalStudentId === studentId || 
+      r.adminEmail === studentId ||
+      r.invoiceNumber === studentId
+    );
+
+    if (!student && reg) {
+      student = this.state.students.find(s => s.email && s.email.toLowerCase() === reg.adminEmail.toLowerCase());
+    }
+
+    if (!student && reg) {
+      // Auto-provision/create student if missing
+      const rawNum = Math.floor(100000 + Math.random() * 900000);
+      const generatedId = reg.personalStudentId || `USR-P-${rawNum}`;
+      student = {
+        id: generatedId,
+        name: reg.schoolName || 'Peserta Personal',
+        email: reg.adminEmail,
+        phone: reg.adminPhone || '',
+        password: reg.adminPassword || 'pass1234',
+        classGroup: 'Personal / Mandiri',
+        class_name: 'Personal / Mandiri',
+        angkatan: new Date().getFullYear(),
+        cohort: new Date().getFullYear(),
+        major: 'Umum & Karir',
+        gender: 'L',
+        schoolOrigin: 'Personal / Mandiri',
+        school_origin: 'Personal / Mandiri',
+        context: 'personal',
+        status: 'BELUM_TES',
+        testType: reg.packageName || 'Minat Bakat & Karir Personal',
+        invoiceNumber: reg.invoiceNumber,
+        amount: reg.amount || reg.totalAmount || 75000,
+        lockedOut: false,
+        paymentStatus: 'PAID',
+        registrationStatus: 'APPROVED',
+        paymentVerifiedAt: new Date().toISOString(),
+        paymentVerifiedBy: verifierName,
+        testStarted: false,
+        testCompleted: false,
+        currentQuestionIndex: 0,
+        answers: {},
+        cheatWarnings: 0,
+        completedTests: [],
+        allowedTests: reg.selectedTestModules && reg.selectedTestModules.length > 0 ? reg.selectedTestModules : ['IQ', 'Holland', 'EQ', 'Kepribadian', 'Validitas']
+      };
+      this.state.students.unshift(student);
+    }
+
     if (student) {
       student.registrationStatus = 'APPROVED';
       student.paymentStatus = 'PAID';
@@ -1286,14 +1524,18 @@ export class PsychometricStore {
       student.paymentVerifiedAt = new Date().toISOString();
       student.paymentVerifiedBy = verifierName;
 
-      // Update matching audit log
-      const reg = this.state.registrations?.find(r => r.adminEmail === student.email || r.invoiceNumber === student.invoiceNumber);
-      if (reg) {
-        reg.status = 'Approved';
-        reg.paymentStatus = 'Paid';
+      // Update matching audit log & guarantee personalStudentId link
+      const targetReg = reg || this.state.registrations?.find(r => r.adminEmail === student.email || r.invoiceNumber === student.invoiceNumber || r.personalStudentId === student.id);
+      if (targetReg) {
+        targetReg.status = 'Approved';
+        targetReg.paymentStatus = 'Paid';
+        targetReg.personalStudentId = student.id;
+        if (targetReg.selectedTestModules && targetReg.selectedTestModules.length > 0) {
+          student.allowedTests = targetReg.selectedTestModules;
+        }
       }
 
-      this.saveToStorage({ studentId });
+      this.saveToStorage({ studentId: student.id });
       this.notifyListeners();
       return true;
     }
@@ -1911,14 +2153,14 @@ export class PsychometricStore {
 
   public async resetAllData(): Promise<void> {
     // Reset all arrays/objects to defaults/presets
-    this.state.students = [...INITIAL_STUDENTS];
+    this.state.students = [];
     this.state.questions = [...PRESET_QUESTIONS];
     this.state.dimensions = [...PRESET_DIMENSIONS];
     this.state.schoolMajors = [...PRESET_MAJORS];
     this.state.testTypes = [...PRESET_TEST_TYPES];
     this.state.packages = [...PRESET_PACKAGES];
-    this.state.registeredClasses = Array.from(new Set(INITIAL_STUDENTS.map(s => s.classGroup))).filter(Boolean).sort();
-    this.state.registeredCohorts = Array.from(new Set(INITIAL_STUDENTS.map(s => s.angkatan))).filter(Boolean).sort((a,b) => a-b);
+    this.state.registeredClasses = [];
+    this.state.registeredCohorts = [];
     this.state.vouchers = [];
     this.state.referrals = [];
     this.state.commissions = [];

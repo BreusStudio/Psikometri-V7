@@ -45,7 +45,7 @@ export function LandingNavbar({ onOpenLogin, onOpenRegister }: LandingNavbarProp
               Psychometrics<span className="text-indigo-600">.id</span>
             </span>
             <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mt-0.5">
-              CBT Asesmen & Talent Analytics
+              Platform Pemetaan Potensi & Talent Analytics
             </span>
           </div>
         </div>
@@ -179,11 +179,11 @@ export function LandingPageView({
             </div>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-[1.15]">
-              {content.heroHeadline || 'Platform Asesmen Psikometri & Minat Bakat Karir Digital'}
+              {content.heroHeadline || 'Platform Asesmen Pemetaan Potensi, Talenta & Orientasi Karir Digital'}
             </h1>
 
             <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
-              {content.heroSubheading || 'Sistem Computer-Based Test cerdas terintegrasi untuk pemetaan kecenderungan minat karir (RIASEC), potensi kecerdasan (IQ), dinamika regulasi emosional (EQ), serta rekomendasi karir cerdas berbasis AI.'}
+              {content.heroSubheading || 'Sistem Computer-Based Test terintegrasi untuk pemetaan Indeks Kemampuan Kognitif, Kecerdasan Emosional, serta Profil Gaya Kerja (RIASEC Framework) bagi Talenta, Instansi, dan Perusahaan.'}
             </p>
 
             {/* Hero CTA buttons */}
@@ -193,7 +193,7 @@ export function LandingPageView({
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/25 hover:shadow-indigo-600/35 cursor-pointer"
               >
                 <LogIn className="w-5 h-5" />
-                Mulai Tes / Masuk Akun
+                Mulai Asesmen / Masuk Akun
                 <ArrowRight className="w-4 h-4 ml-1" />
               </button>
 
@@ -225,7 +225,7 @@ export function LandingPageView({
               </span>
               <span className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                Sertifikat & Laporan Psikogram PDF
+                Sertifikat & Laporan Pemetaan Potensi PDF
               </span>
             </div>
           </div>
@@ -284,10 +284,10 @@ export function LandingPageView({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              Modul Asesmen Psikometri Komprehensif
+              Modul Asesmen Pemetaan Potensi & Talenta Komprehensif
             </h2>
             <p className="text-slate-600 text-sm sm:text-base">
-              Dirancang khusus untuk mengukur potensi intelektual, kecerdasan emosional, dan orientasi minat karir peserta secara akurat.
+              Dirancang untuk mengukur Indeks Kemampuan Kognitif, Kecerdasan Emosional, dan Profil Gaya Kerja (RIASEC Framework) secara terukur.
             </p>
           </div>
 
@@ -298,10 +298,10 @@ export function LandingPageView({
                 <Brain className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">
-                {content.feature1Title || 'Potensi Kognitif (IQ)'}
+                {content.feature1Title || 'Cognitive Ability Index'}
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                {content.feature1Desc || 'Tes penalaran spasial, logika abstrak, verbal, numerik, dan pola kognitif.'}
+                {content.feature1Desc || 'Pemetaan penalaran logika, spasial, verbal, dan pemecahan masalah kompleks.'}
               </p>
             </div>
 
@@ -311,10 +311,10 @@ export function LandingPageView({
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">
-                {content.feature2Title || 'Regulasi Emosi (EQ)'}
+                {content.feature2Title || 'Emotional & Working Resilience'}
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                {content.feature2Desc || 'Pengukuran kesadaran diri, pemetaan stresor, stabilitas emosional, dan ketahanan diri.'}
+                {content.feature2Desc || 'Pemetaan regulasi emosional, adaptasi stresor, dan ketahanan dinamika tim.'}
               </p>
             </div>
 
@@ -324,10 +324,10 @@ export function LandingPageView({
                 <Compass className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">
-                {content.feature3Title || 'Kecenderungan Karir'}
+                {content.feature3Title || 'Vocational Interest Profile'}
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                {content.feature3Desc || 'Pemetaan tipologi Holland RIASEC (Realistic, Investigative, Artistic, Social, Enterprising, Conventional).'}
+                {content.feature3Desc || 'Pemetaan orientasi gaya kerja berbasis kerangka kerja Holland RIASEC.'}
               </p>
             </div>
 
@@ -337,10 +337,10 @@ export function LandingPageView({
                 <Sparkles className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">
-                {content.feature4Title || 'Rekomendasi Cerdas AI'}
+                {content.feature4Title || 'AI Talent Insight & Recommendations'}
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                {content.feature4Desc || 'Sintesis narasi psikogram otomatis dan saran keselarasan jurusan berbasis model Gemini AI.'}
+                {content.feature4Desc || 'Sintesis narasi pemetaan dan rekomendasi pengembangan talenta berbasis Gemini AI.'}
               </p>
             </div>
           </div>
@@ -369,7 +369,7 @@ export function LandingPageView({
                 </div>
                 <h3 className="text-2xl font-black text-slate-900">Pendaftaran Instansi (B2B)</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Layanan kolektif untuk sekolah (SD, SMP, SMA, SMK, Perguruan Tinggi) dan korporasi. Dilengkapi Dashboard Admin, Manajemen Token CBT, Rekapitulasi Excel, dan Sertifikat Psikogram PDF Kolektif.
+                  Layanan kolektif untuk sekolah (SD, SMP, SMA, SMK, Perguruan Tinggi) dan korporasi. Dilengkapi Dashboard Admin, Manajemen Token CBT, Rekapitulasi Excel, dan Laporan Hasil Asesmen Kolektif.
                 </p>
                 <ul className="space-y-2 text-xs text-slate-700 font-medium">
                   <li className="flex items-center gap-2">
@@ -405,16 +405,16 @@ export function LandingPageView({
                 </div>
                 <h3 className="text-2xl font-black text-slate-900">Pendaftaran Mandiri</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Bagi individu, siswa umum, atau profesional yang ingin menguji potensi kecerdasan (IQ), kepribadian, serta keselarasan minat karir mandiri tanpa melalui sekolah.
+                  Bagi individu, siswa umum, atau profesional yang ingin mengukur Indeks Kemampuan Kognitif, regulasi emosi, serta keselarasan minat karir mandiri tanpa melalui sekolah.
                 </p>
                 <ul className="space-y-2 text-xs text-slate-700 font-medium">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    Akses Asesmen Psikometri Mandiri
+                    Akses Asesmen Pemetaan Potensi Mandiri
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    Hasil Laporan Psikogram & Rekomendasi Karir Instant
+                    Laporan Hasil Pemetaan Potensi & Rekomendasi Karir
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -447,7 +447,7 @@ export function LandingPageView({
                 <span className="text-lg font-black tracking-tight">Psychometrics.id</span>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Sistem Psikometri & Computer-Based Test (CBT) Terpercaya untuk Sekolah, Kampus, dan Perusahaan di Seluruh Indonesia.
+                Platform Asesmen Pemetaan Potensi & Computer-Based Test (CBT) Terintegrasi untuk Sekolah, Kampus, dan Instansi di Seluruh Indonesia.
               </p>
             </div>
 
@@ -483,8 +483,13 @@ export function LandingPageView({
             </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-800 text-center text-xs text-slate-500">
-            &copy; {new Date().getFullYear()} Psychometrics.id — Platform Asesmen Psikometri & Talent Analytics Digital. All rights reserved.
+          {/* LEGAL DISCLAIMER NOTICE IN FOOTER */}
+          <div className="p-4 bg-slate-950/80 rounded-xl border border-slate-800 text-[11px] text-slate-400 text-center leading-relaxed max-w-4xl mx-auto">
+            <strong>Disclaimer Legalitas Platform:</strong> Psychometrics.id merupakan platform teknologi edukasi dan pemetaan potensi mandiri berbasis algoritma digital untuk bimbingan sekolah, vokasi, dan karir. Hasil laporan instrumen bersifat indikatif sebagai bahan acuan bimbingan konseling dan tidak bersifat diagnostik medis/klinis.
+          </div>
+
+          <div className="pt-4 border-t border-slate-800 text-center text-xs text-slate-500">
+            &copy; {new Date().getFullYear()} Psychometrics.id — Platform Asesmen Pemetaan Potensi & Talent Analytics Digital. All rights reserved.
           </div>
         </div>
       </footer>

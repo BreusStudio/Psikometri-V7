@@ -26,7 +26,8 @@ import {
   Edit3,
   ToggleLeft,
   ToggleRight,
-  ShieldCheck
+  ShieldCheck,
+  Archive
 } from 'lucide-react';
 import { PsychometricStore, Voucher, Purchase, Package, Student } from '../../../lib/mockData';
 
@@ -104,7 +105,7 @@ export default function SubscriptionsSubTab({
     const testTypesList = store.getTestTypes();
     const typePriceMap: Record<string, number> = {};
     testTypesList.forEach(t => {
-      const p = t.pricePerUser || (t.id === 'IQ' ? 10000 : t.id === 'EQ' ? 8000 : t.id === 'Holland' ? 7000 : t.id === 'Kepribadian' ? 8000 : 5000);
+      const p = t.pricePerUser ?? 0;
       typePriceMap[t.id] = p;
       if (t.name) typePriceMap[t.name] = p;
     });
@@ -200,22 +201,34 @@ export default function SubscriptionsSubTab({
     showToast(`Data lisensi ${updatedData.buyerName} berhasil diperbarui!`);
   };
 
-  // Delete Subscription Logic
+  // Archive (Soft Delete) Subscription Logic
+  const handleArchiveSubscription = (sub: any) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Arsipkan Lisensi & Klien',
+      message: `Apakah Anda yakin ingin mengarsipkan lisensi "${sub.buyerName}" (${sub.voucher.code})? Data klien dan voucher akan di-nonaktifkan, dan akun peserta terkait akan dikunci ke status Draft.`,
+      onConfirm: () => {
+        const key = sub.purchase?.id || sub.voucher.code;
+        store.archivePurchase(key);
+        onRefresh();
+        setConfirmModal(null);
+        showToast(`Lisensi ${sub.buyerName} berhasil diarsipkan.`);
+      }
+    });
+  };
+
+  // Delete (Cascade Delete) Subscription Logic
   const handleDeleteSubscription = (sub: any) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Hapus Langganan & Voucher Klien',
-      message: `Apakah Anda yakin ingin menghapus lisensi "${sub.buyerName}" (${sub.voucher.code})? Seluruh data transaksi dan akun voucher terkait akan dihapus permanen.`,
+      title: 'HAPUS PERMANEN (Cascade Delete)',
+      message: `PERINGATAN! Apakah Anda yakin ingin menghapus PERMANEN lisensi "${sub.buyerName}" (${sub.voucher.code})? Seluruh data transaksi, voucher, akun peserta, dan lembar jawaban terkait akan DIHAPUS SEPENUHNYA dari sistem dan Supabase tanpa meninggalkan data yatim.`,
       onConfirm: () => {
-        if (sub.purchase && sub.purchase.id) {
-          store.deletePurchase(sub.purchase.id);
-        } else {
-          store.deleteVoucher(sub.voucher.code);
-        }
-        store.saveLocalStorageOnly();
+        const key = sub.purchase?.id || sub.voucher.code;
+        store.deletePurchaseCascade(key);
         onRefresh();
         setConfirmModal(null);
-        showToast(`Langganan ${sub.buyerName} (${sub.voucher.code}) berhasil dihapus.`);
+        showToast(`Langganan ${sub.buyerName} & seluruh data terkait berhasil dihapus permanen.`);
       }
     });
   };
@@ -759,29 +772,25 @@ export default function SubscriptionsSubTab({
                               <span className="hidden sm:inline">Edit</span>
                             </button>
 
-                            {/* TOGGLE VOUCHER ACTIVE STATUS */}
+                            {/* ARCHIVE / SOFT DELETE BUTTON */}
                             <button
                               type="button"
-                              onClick={() => handleToggleVoucherActive(sub.voucher.code, sub.voucher.active ?? true)}
-                              className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                                sub.voucher.active !== false 
-                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-rose-50 hover:text-rose-600' 
-                                  : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-emerald-50 hover:text-emerald-600'
-                              }`}
-                              title={sub.voucher.active !== false ? 'Non-aktifkan Voucher' : 'Aktifkan Voucher'}
+                              onClick={() => handleArchiveSubscription(sub)}
+                              className="p-1.5 rounded-xl bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-all cursor-pointer shadow-sm"
+                              title="Arsipkan / Soft Delete Klien & Voucher"
                             >
-                              <ShieldCheck className="w-3.5 h-3.5" />
+                              <Archive className="w-3.5 h-3.5" />
                             </button>
 
-                            {/* DELETE BUTTON */}
+                            {/* CASCADE DELETE BUTTON */}
                             {isSuperAdmin && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteSubscription(sub)}
                                 className="p-1.5 rounded-xl bg-white border border-slate-200 hover:border-rose-300 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all cursor-pointer shadow-sm"
-                                title="Hapus Transaksi & Voucher"
+                                title="Hapus Permanen (Cascade Delete) Klien & Seluruh Peserta"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                               </button>
                             )}
                           </div>

@@ -141,7 +141,7 @@ export default function StudentsTable({
                 />
               </th>
               <th className="p-3">User / Peserta</th>
-              <th className="p-3">ID / NISN</th>
+              <th className="p-3">ID User / NISN</th>
               <th className="p-3">Grup & Peminatan</th>
               <th className="p-3">Skor IQ / EQ</th>
               <th className="p-3">Dominan RIASEC</th>

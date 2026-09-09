@@ -154,7 +154,14 @@ export function setupRealtimeSubscriptions(
             eqDuration: row.eq_duration || 15,
             hollandDuration: row.holland_duration || 15,
             kepribadianDuration: row.kepribadian_duration || 15,
-            validitasDuration: row.validitas_duration || 15
+            validitasDuration: row.validitas_duration || 15,
+            proctoringMode: row.proctoring_mode || state.testSettings.proctoringMode || 'AUDIT_ONLY',
+            enableAntiCheat: row.enable_anti_cheat !== undefined ? row.enable_anti_cheat : (row.anti_cheat_config?.enableAntiCheat ?? true),
+            enableFullscreenLock: row.anti_cheat_config?.enableFullscreenLock ?? state.testSettings.enableFullscreenLock ?? true,
+            enableTabSwitchDetection: row.anti_cheat_config?.enableTabSwitchDetection ?? state.testSettings.enableTabSwitchDetection ?? true,
+            maxAllowedTabSwitches: row.anti_cheat_config?.maxAllowedTabSwitches ?? state.testSettings.maxAllowedTabSwitches ?? 3,
+            disableCopyPaste: row.anti_cheat_config?.disableCopyPaste ?? state.testSettings.disableCopyPaste ?? true,
+            enableDevToolsProtection: row.anti_cheat_config?.enableDevToolsProtection ?? state.testSettings.enableDevToolsProtection ?? true
           };
           if (Array.isArray(row.registered_classes)) state.registeredClasses = row.registered_classes;
           if (Array.isArray(row.registered_cohorts)) state.registeredCohorts = row.registered_cohorts;
@@ -256,6 +263,76 @@ export function setupRealtimeSubscriptions(
         notify();
       }
     )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'purchases' },
+      async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const row = payload.new;
+          if (row && row.id) {
+            const idx = state.purchases.findIndex(p => p.id === row.id);
+            if (idx >= 0) {
+              state.purchases[idx] = { ...state.purchases[idx], ...row };
+            } else {
+              state.purchases.push(row as any);
+            }
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = payload.old?.id;
+          if (deletedId) {
+            state.purchases = state.purchases.filter(p => p.id !== deletedId);
+          }
+        }
+        notify();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'vouchers' },
+      async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const row = payload.new;
+          if (row && row.code) {
+            const idx = state.vouchers.findIndex(v => v.code.toUpperCase() === row.code.toUpperCase());
+            if (idx >= 0) {
+              state.vouchers[idx] = { ...state.vouchers[idx], ...row };
+            } else {
+              state.vouchers.push(row as any);
+            }
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const deletedCode = payload.old?.code;
+          if (deletedCode) {
+            state.vouchers = state.vouchers.filter(v => v.code.toUpperCase() !== String(deletedCode).toUpperCase());
+          }
+        }
+        notify();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'registration_requests' },
+      async (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const row = payload.new;
+          if (row && row.id) {
+            const idx = (state.registrations || []).findIndex(r => r.id === row.id);
+            if (idx >= 0) {
+              state.registrations[idx] = { ...state.registrations[idx], ...row };
+            } else {
+              if (!state.registrations) state.registrations = [];
+              state.registrations.push(row as any);
+            }
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = payload.old?.id;
+          if (deletedId && state.registrations) {
+            state.registrations = state.registrations.filter(r => r.id !== deletedId);
+          }
+        }
+        notify();
+      }
+    )
     .subscribe();
 
   return () => {
@@ -332,7 +409,14 @@ export async function syncWithSupabase(state: StoreDataState): Promise<boolean> 
         eqDuration: settingsData.eq_duration || ttEq?.duration || 15,
         hollandDuration: settingsData.holland_duration || ttHolland?.duration || settingsData.minat_duration || 15,
         kepribadianDuration: settingsData.kepribadian_duration || ttKepribadian?.duration || 15,
-        validitasDuration: settingsData.validitas_duration || ttValiditas?.duration || 15
+        validitasDuration: settingsData.validitas_duration || ttValiditas?.duration || 15,
+        proctoringMode: settingsData.proctoring_mode || 'AUDIT_ONLY',
+        enableAntiCheat: settingsData.enable_anti_cheat !== undefined ? settingsData.enable_anti_cheat : (settingsData.anti_cheat_config?.enableAntiCheat ?? true),
+        enableFullscreenLock: settingsData.anti_cheat_config?.enableFullscreenLock ?? true,
+        enableTabSwitchDetection: settingsData.anti_cheat_config?.enableTabSwitchDetection ?? true,
+        maxAllowedTabSwitches: settingsData.anti_cheat_config?.maxAllowedTabSwitches ?? 3,
+        disableCopyPaste: settingsData.anti_cheat_config?.disableCopyPaste ?? true,
+        enableDevToolsProtection: settingsData.anti_cheat_config?.enableDevToolsProtection ?? true
       };
 
       if (Array.isArray(settingsData.registered_classes)) state.registeredClasses = settingsData.registered_classes;
@@ -592,6 +676,16 @@ async function upsertTestSettings(state: StoreDataState) {
     validitas_duration: state.testSettings.validitasDuration,
     minat_duration: state.testSettings.hollandDuration,
     bakat_duration: state.testSettings.iqDuration,
+    proctoring_mode: state.testSettings.proctoringMode || 'AUDIT_ONLY',
+    enable_anti_cheat: state.testSettings.enableAntiCheat !== false,
+    anti_cheat_config: {
+      enableAntiCheat: state.testSettings.enableAntiCheat !== false,
+      enableFullscreenLock: state.testSettings.enableFullscreenLock !== false,
+      enableTabSwitchDetection: state.testSettings.enableTabSwitchDetection !== false,
+      maxAllowedTabSwitches: state.testSettings.maxAllowedTabSwitches || 3,
+      disableCopyPaste: state.testSettings.disableCopyPaste !== false,
+      enableDevToolsProtection: state.testSettings.enableDevToolsProtection !== false
+    },
     registered_classes: state.registeredClasses,
     registered_cohorts: state.registeredCohorts,
     quota_added: state.quotaAdded,

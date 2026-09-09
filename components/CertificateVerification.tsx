@@ -155,24 +155,24 @@ export default function CertificateVerification({
           {/* PSYCHOMETRIC VERIFIED RESULTS */}
           <div className="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-5 space-y-4">
             <h3 className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-              Hasil Rekap Psikometri Terverifikasi
+              Hasil Rekap Asesmen Potensi Terverifikasi
             </h3>
 
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-slate-900/30 border border-slate-800 p-3 rounded-xl text-center">
-                <span className="text-[8px] font-black text-slate-500 uppercase block tracking-wider mb-1">Skor IQ</span>
+                <span className="text-[8px] font-black text-slate-500 uppercase block tracking-wider mb-1">Cognitive Index</span>
                 <span className="text-sm font-black text-blue-400 font-mono block">{student.iqScore || 95}</span>
-                <span className="text-[8px] text-slate-500 block font-medium uppercase mt-0.5">Potensi Kognitif</span>
+                <span className="text-[8px] text-slate-500 block font-medium uppercase mt-0.5">Kemampuan Kognitif</span>
               </div>
               <div className="bg-slate-900/30 border border-slate-800 p-3 rounded-xl text-center">
-                <span className="text-[8px] font-black text-slate-500 uppercase block tracking-wider mb-1">Skor EQ</span>
+                <span className="text-[8px] font-black text-slate-500 uppercase block tracking-wider mb-1">Emotional Resilience</span>
                 <span className="text-sm font-black text-purple-400 font-mono block">{student.eqScore || 90}</span>
                 <span className="text-[8px] text-slate-500 block font-medium uppercase mt-0.5">Regulasi Emosi</span>
               </div>
               <div className="bg-slate-900/30 border border-slate-800 p-3 rounded-xl text-center">
-                <span className="text-[8px] font-black text-slate-500 uppercase block tracking-wider mb-1">Holland RIASEC</span>
+                <span className="text-[8px] font-black text-slate-500 uppercase block tracking-wider mb-1">RIASEC Profile</span>
                 <span className="text-sm font-black text-amber-400 font-mono block">{getRiasecCode(student)}</span>
-                <span className="text-[8px] text-slate-500 block font-medium uppercase mt-0.5">Minat Vokasional</span>
+                <span className="text-[8px] text-slate-500 block font-medium uppercase mt-0.5">Orientasi Karir</span>
               </div>
             </div>
 
@@ -213,6 +213,11 @@ export default function CertificateVerification({
                 Data ditarik secara langsung dari portal CBT Psikometri berlisensi resmi.
               </p>
             </div>
+          </div>
+
+          {/* LEGAL DISCLAIMER NOTICE */}
+          <div className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl text-[10px] text-slate-400 text-center leading-relaxed">
+            <strong>Disclaimer Legalitas:</strong> Laporan dan sertifikat ini diterbitkan secara elektronik sebagai lembar pemetaan potensi mandiri untuk tujuan bimbingan edukasi, vokasi, dan pengembangan karir. Dokumen ini tidak bersifat diagnostik medis/klinis dan dipergunakan sebagai rujukan bimbingan konseling.
           </div>
 
           {/* BOTTOM ACTIONS */}

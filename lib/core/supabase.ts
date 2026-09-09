@@ -205,7 +205,17 @@ export function generateSqlMigrationPatch(): string {
     lines.push(`CREATE POLICY "Allow anon full access on ${table}" ON public.${table} FOR ALL USING (true) WITH CHECK (true);`);
   });
 
-  lines.push('\n-- 4. PAKSA RELOAD CACHE SKEMA POSTGREST SUPABASE:');
+  lines.push('\n-- 4. INDEKS B-TREE OPTIMASI PERFORMA & DUKUNGAN SUPABASE FREE TIER:');
+  lines.push('CREATE INDEX IF NOT EXISTS idx_students_school_origin ON public.students (school_origin);');
+  lines.push('CREATE INDEX IF NOT EXISTS idx_students_email ON public.students (email);');
+  lines.push('CREATE INDEX IF NOT EXISTS idx_students_invoice ON public.students (invoice_number);');
+  lines.push('CREATE INDEX IF NOT EXISTS idx_students_cbt_status ON public.students (test_started, test_completed, locked_out);');
+  lines.push('CREATE INDEX IF NOT EXISTS idx_registrations_status ON public.registration_requests (status);');
+  lines.push('CREATE INDEX IF NOT EXISTS idx_registrations_email ON public.registration_requests (admin_email);');
+  lines.push('CREATE INDEX IF NOT EXISTS idx_student_answers_student ON public.student_answers (student_id);');
+  lines.push('CREATE INDEX IF NOT EXISTS idx_questions_category ON public.questions (category, is_active);');
+
+  lines.push('\n-- 5. PAKSA RELOAD CACHE SKEMA POSTGREST SUPABASE:');
   lines.push(`NOTIFY pgrst, 'reload schema';`);
 
   return lines.join('\n');
