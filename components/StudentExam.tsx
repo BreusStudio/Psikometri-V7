@@ -400,8 +400,8 @@ export default function StudentExam({ store, studentId, onLogout, onRefresh }: S
     const testTypeRecord = store.getTestTypes().find(t => 
       t.id === type || 
       t.name === type || 
-      t.id.toLowerCase() === type.toLowerCase() || 
-      t.name.toLowerCase() === type.toLowerCase()
+      (t.id && type && t.id.toLowerCase() === type.toLowerCase()) || 
+      (t.name && type && t.name.toLowerCase() === type.toLowerCase())
     );
 
     let limit = subQuestions.length;

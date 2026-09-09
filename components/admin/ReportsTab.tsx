@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Sparkles, RotateCw, AlertCircle, HelpCircle, ShieldCheck, Printer, X, Image as ImageIcon, Upload, Trash2, Scale, Settings } from 'lucide-react';
-import { Student, Question, Dimension, Package } from '../../lib/types';
+import { Student, Question, Dimension, Package } from '@/lib/core/types';
 import { useReportFilter } from '@/lib/hooks/useReportFilter';
 
 // Import modular subcomponents

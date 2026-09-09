@@ -276,7 +276,7 @@ export default function ReportsHubTab({
   const filteredMajorList = useMemo(() => {
     if (!selectedMajorSearch.trim()) return majorAnalytics;
     const term = selectedMajorSearch.toLowerCase();
-    return majorAnalytics.filter(m => m.name.toLowerCase().includes(term) || m.code.toLowerCase().includes(term));
+    return majorAnalytics.filter(m => (m.name || '').toLowerCase().includes(term) || (m.code || '').toLowerCase().includes(term));
   }, [majorAnalytics, selectedMajorSearch]);
 
   return (

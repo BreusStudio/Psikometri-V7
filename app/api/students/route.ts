@@ -49,8 +49,8 @@ export const GET = withApiHandler(async (req: NextRequest) => {
       const q = search.toLowerCase();
       results = results.filter(
         (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.id.toLowerCase().includes(q) ||
+          (s.name || '').toLowerCase().includes(q) ||
+          (s.id || '').toLowerCase().includes(q) ||
           (s.classGroup && s.classGroup.toLowerCase().includes(q))
       );
     }

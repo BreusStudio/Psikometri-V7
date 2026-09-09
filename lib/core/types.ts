@@ -67,6 +67,11 @@ export interface Student {
   email?: string;
   phone?: string;
   paymentStatus?: 'UNPAID' | 'PAID' | 'REJECTED';
+  registrationStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  packageId?: string;
+  packageName?: string;
+  paymentProofUrl?: string;
+  rejectionReason?: string;
   invoiceNumber?: string;
   amount?: number;
   paymentVerifiedAt?: string | null;

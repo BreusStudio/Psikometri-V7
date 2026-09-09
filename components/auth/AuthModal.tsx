@@ -94,9 +94,9 @@ export function AuthModal({
       if (loginRole === 'student') {
         const students = store.getStudents();
         const found = students.find(s => 
-          s.id.toLowerCase() === cleanInput.toLowerCase() ||
+          (s.id && s.id.toLowerCase() === cleanInput.toLowerCase()) ||
           (s.email && s.email.toLowerCase() === cleanInput.toLowerCase()) ||
-          s.name.toLowerCase() === cleanInput.toLowerCase()
+          (s.name && s.name.toLowerCase() === cleanInput.toLowerCase())
         );
 
         if (!found) {
@@ -129,8 +129,8 @@ export function AuthModal({
         }
 
         const foundTeacher = teachers.find(t => 
-          t.id.toLowerCase() === cleanInput.toLowerCase() ||
-          t.name.toLowerCase() === cleanInput.toLowerCase()
+          (t.id && t.id.toLowerCase() === cleanInput.toLowerCase()) ||
+          (t.name && t.name.toLowerCase() === cleanInput.toLowerCase())
         );
 
         if (!foundTeacher) {
@@ -168,7 +168,7 @@ export function AuthModal({
 
     // Anti-Spam / Pengecekan Eksistensi Duplikasi Email (Logic Layer Check)
     const existingReg = store.getRegistrations().find(r => 
-      r.adminEmail.toLowerCase() === instansiForm.adminEmail.trim().toLowerCase() && 
+      r.adminEmail && r.adminEmail.toLowerCase() === instansiForm.adminEmail.trim().toLowerCase() && 
       r.registrationType === 'instansi'
     );
     if (existingReg) {
@@ -219,7 +219,7 @@ export function AuthModal({
 
     // Anti-Spam / Pengecekan Eksistensi Duplikasi Email (Logic Layer Check)
     const allStudents = store.getStudents();
-    const existingStudent = allStudents.find((s: any) => s.email.toLowerCase() === personalForm.email.trim().toLowerCase());
+    const existingStudent = allStudents.find((s: any) => s.email && s.email.toLowerCase() === personalForm.email.trim().toLowerCase());
     if (existingStudent) {
       if (existingStudent.paymentStatus === 'PAID' || existingStudent.lockedOut === false) {
         setFormError('Email ini sudah terdaftar dan akun Anda sudah Aktif. Silakan kembali ke menu Login.');

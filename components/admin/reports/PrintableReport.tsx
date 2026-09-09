@@ -77,9 +77,9 @@ export default function PrintableReport({
             background-color: white !important;
             margin: 0 !important;
             padding: 0 !important;
-            height: auto !important;
-            min-height: 100% !important;
-            overflow: visible !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            overflow: hidden !important;
             visibility: hidden !important;
           }
           #printable-report-container, #printable-report-container * {
@@ -101,6 +101,10 @@ export default function PrintableReport({
           .page-break {
             page-break-after: always !important;
             break-after: page !important;
+          }
+          #printable-report-container > div:last-child {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
         }
       `}} />
@@ -246,9 +250,16 @@ export default function PrintableReport({
                 <div className="mt-1.5 pt-1.5 border-t border-slate-400 flex justify-between items-center px-1">
                   <div className="text-[10px] font-bold text-slate-500">Tipe Dominan Kepribadian:</div>
                   <div className="text-[11px] font-black text-slate-900 tracking-widest">
-                    {student.riasecScores 
-                       ? Object.entries(student.riasecScores).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0]).join('-')
-                       : '-'}
+                    {(() => {
+                      if (!student.riasecScores) return 'MODUL TIDAK DIAMBIL';
+                      const sum = Object.values(student.riasecScores).reduce((a, b) => a + b, 0);
+                      if (sum === 0) return 'TIDAK TES RIASEC';
+                      return Object.entries(student.riasecScores)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 3)
+                        .map(e => e[0])
+                        .join('-');
+                    })()}
                   </div>
                 </div>
               </div>

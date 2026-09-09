@@ -201,8 +201,8 @@ export default function DashboardTab({ students, tokenInfo, setStatModal, sessio
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       result = result.filter(s => 
-        s.name.toLowerCase().includes(term) || 
-        s.id.toLowerCase().includes(term) ||
+        (s.name || '').toLowerCase().includes(term) || 
+        (s.id || '').toLowerCase().includes(term) ||
         (s.classGroup || '').toLowerCase().includes(term)
       );
     }

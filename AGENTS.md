@@ -87,3 +87,19 @@ Untuk memastikan proses perbaikan berjalan cepat, aman, dan tanpa error berulang
   - **Penanganan Dev Server Hang / Defunct**: Jika dev server terhenti, periksa apakah terdapat proses latar belakang yang menggantung (seperti installer pihak ketiga), hentikan proses yang macet, pastikan binary Next.js siap (`./node_modules/.bin/next`), lalu gunakan tool resmi `restart_dev_server`.
   - **Verifikasi Liveness Port 3000**: Dev server dinyatakan sehat setelah menghasilkan respons HTTP 200 via `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/`.
 
+### 10. Protokol Anti-Freeze, Fast-Refresh, & Integritas File System (Dev-Speed Protocol)
+- **Status**: **TERIMPLEMENTASI & MENGIKAT SELURUH MODEL AI**
+- **Prosedur**:
+  - **Kepatuhan Node.js Fast-Refresh**: Next.js development server telah aktif di port 3000 dan secara bawaan mengompilasi ulang halaman secara instan saat file disimpan. Agen DILARANG memanggil `compile_applet` secara otomatis setelah mengedit kode. Iframe preview akan otomatis me-reload halaman.
+  - **Larangan Otomasi `compile_applet`**: `compile_applet` memicu `npm run build` yang memakan waktu 1–2 menit, menguras CPU, serta memicu konflik `.next` cache dengan dev server. Tool ini hanya boleh dipanggil jika ada instruksi tertulis langsung dari pengguna (misal: "lakukan production compile" atau "build applet").
+  - **Larangan Task Shell Background Menggantung**: Agen DILARANG mengeksekusi shell command pemantauan di latar belakang (seperti `ps aux`, `curl`, atau `sleep`) yang dapat menahan I/O file system dan memicu error `Timeout waiting for applet file system condition`.
+  - **Integritas `package.json`**: Dilarang memodifikasi file `package.json` saat menangani tugas perbaikan logika atau UI biasa. Penambahan dependensi hanya diizinkan bila diminta oleh pengguna.
+  - **Direktori Kerja Relatif**: Semua operasi file dan shell command wajib mengacu pada working directory proyek lokal (`.`), bukan direktori root OS container Linux (`/`).
+
+### 11. Protokol Anti-Halusinasi Eksekusi (Proof-of-Edit & Ground Truth Mandate)
+- **Status**: **TERIMPLEMENTASI & MENGIKAT SELURUH MODEL AI**
+- **Prosedur**:
+  - **Larangan Klaim Tanpa Bukti Nyata**: Agen DILARANG KERAS menyatakan "sudah memperbaiki" atau "sudah mengedit" jika tidak ada respons sukses fisik dari tool `edit_file` atau `create_file` (ditandai dengan blok diff perubahan file yang berhasil di log).
+  - **Penanganan Gagal Edit (Zero Silent Failure)**: Jika tool `edit_file` menghasilkan error `Target content not found`, agen DILARANG menutup respon atau mengabaikannya. Agen WAJIB segera memanggil `view_file` pada target baris aktual, menyamakan string secara presisi (termasuk whitespace), dan mengulangi pemanggilan edit sampai modifikasi fisik benar-benar tertulis di disk.
+  - **Mandat Read-Before-Write**: Sebelum melakukan perubahan kode, agen WAJIB memeriksa baris target via `view_file` pada giliran yang sama.
+  - **Verifikasi Path Nyata**: Pastikan file yang diedit adalah file aktif yang memang diimpor oleh aplikasi, bukan file bayangan (*dead code*) usang yang sudah tidak dipakai.

@@ -145,6 +145,7 @@ export default function Home() {
     return () => {
       clearTimeout(watchdogTimer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleLogout = () => {

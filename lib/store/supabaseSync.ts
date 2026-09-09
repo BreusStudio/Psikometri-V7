@@ -345,7 +345,7 @@ export async function syncWithSupabase(state: StoreDataState): Promise<boolean> 
       if (Array.isArray(settingsData.packages)) state.packages = settingsData.packages;
       
       // Attempt to load from normalized tables (Fase 1 Migration)
-      const { data: vouchersData } = await supabase.from('vouchers').select('*');
+      const { data: vouchersData } = await supabase.from('vouchers').select('code, type, value, active, usage_count, school_name, max_usage, is_unlimited, expired_at, test_types, test_count, generated_accounts, admin_username, admin_password');
       if (vouchersData && Array.isArray(vouchersData) && vouchersData.length > 0) {
         state.vouchers = vouchersData.map(v => ({
           code: v.code,
@@ -365,7 +365,7 @@ export async function syncWithSupabase(state: StoreDataState): Promise<boolean> 
         }));
       }
 
-      const { data: purchasesData } = await supabase.from('purchases').select('*');
+      const { data: purchasesData } = await supabase.from('purchases').select('id, platform, package_name, buyer_name, buyer_email, amount, voucher_used, referral_used, commission_earned, date, status, quota_added, generated_voucher');
       if (purchasesData && Array.isArray(purchasesData) && purchasesData.length > 0) {
         state.purchases = purchasesData.map(p => ({
           id: p.id,
@@ -384,7 +384,33 @@ export async function syncWithSupabase(state: StoreDataState): Promise<boolean> 
         }));
       }
 
-      const { data: packagesData } = await supabase.from('packages').select('*');
+      const { data: referralsData } = await supabase.from('referral_codes').select('code, owner_name, commission_rate, total_earned, bank_info');
+      if (referralsData && Array.isArray(referralsData) && referralsData.length > 0) {
+        state.referrals = referralsData.map(r => ({
+          code: r.code,
+          ownerName: r.owner_name,
+          commissionRate: r.commission_rate,
+          totalEarned: r.total_earned,
+          bankInfo: r.bank_info || ''
+        }));
+      }
+
+      const { data: commissionsData } = await supabase.from('commissions').select('id, referral_code, buyer_name, purchase_amount, commission_amount, status, paid_date, transfer_receipt, date');
+      if (commissionsData && Array.isArray(commissionsData) && commissionsData.length > 0) {
+        state.commissions = commissionsData.map(c => ({
+          id: c.id,
+          referralCode: c.referral_code,
+          buyerName: c.buyer_name,
+          purchaseAmount: c.purchase_amount,
+          commissionAmount: c.commission_amount,
+          status: c.status,
+          paidDate: c.paid_date || null,
+          transferReceipt: c.transfer_receipt || null,
+          date: c.date || new Date().toISOString()
+        }));
+      }
+
+      const { data: packagesData } = await supabase.from('packages').select('id, name, price, test_count, category, description, test_types, active, logo_url, header_title, institution_name, institution_sub, signature_name, signature_title, signature_nip, education_levels, popular, quota, original_price, features, badge_text, test_type_id, price_per_account, discount_percentage');
       if (packagesData && Array.isArray(packagesData) && packagesData.length > 0) {
         state.packages = packagesData.map(p => ({
           id: p.id,
@@ -420,7 +446,7 @@ export async function syncWithSupabase(state: StoreDataState): Promise<boolean> 
     }
 
     // 2. Sync Questions
-    let { data: questionsData, error: qError } = await supabase.from('questions').select('*');
+    let { data: questionsData, error: qError } = await supabase.from('questions').select('id, test_type, dimension, text, choices, image_url, rubric, option_scores, weight, is_validated, verification_status');
     if (!qError && questionsData) {
       let localDeletedIds: Set<string> = new Set();
       if (typeof window !== 'undefined') {
@@ -444,7 +470,7 @@ export async function syncWithSupabase(state: StoreDataState): Promise<boolean> 
           choices: q.choices,
           image_url: q.imageUrl || null
         })));
-        const { data: reFetched } = await supabase.from('questions').select('*');
+        const { data: reFetched } = await supabase.from('questions').select('id, test_type, dimension, text, choices, image_url, rubric, option_scores, weight, is_validated, verification_status');
         if (reFetched) questionsData = reFetched;
       }
       
@@ -454,7 +480,7 @@ export async function syncWithSupabase(state: StoreDataState): Promise<boolean> 
     }
 
     // 3. Sync Dimensions
-    let { data: dimData, error: dimError } = await supabase.from('dimensions').select('*');
+    let { data: dimData, error: dimError } = await supabase.from('dimensions').select('id, name, test_type, description');
     if (!dimError && dimData) {
       const existingDimIds = new Set(dimData.map(d => d.id));
       const missingDimensions = PRESET_DIMENSIONS.filter(d => !existingDimIds.has(d.id));
@@ -466,14 +492,14 @@ export async function syncWithSupabase(state: StoreDataState): Promise<boolean> 
           test_type: d.testType,
           description: d.description || null
         })));
-        const { data: reFetchedDim } = await supabase.from('dimensions').select('*');
+        const { data: reFetchedDim } = await supabase.from('dimensions').select('id, name, test_type, description');
         if (reFetchedDim) dimData = reFetchedDim;
       }
       state.dimensions = dimData.map(d => mapDatabaseRowToDimension(d));
     }
 
     // 4. Sync School Majors
-    const { data: majorData, error: majorError } = await supabase.from('school_majors').select('*');
+    const { data: majorData, error: majorError } = await supabase.from('school_majors').select('id, code, name, riasec_type, description');
     if (!majorError && majorData) {
       state.schoolMajors = majorData.map(m => ({
         id: m.id,
@@ -485,7 +511,7 @@ export async function syncWithSupabase(state: StoreDataState): Promise<boolean> 
     }
 
     // 5. Sync Teachers
-    const { data: teachersData, error: teachError } = await supabase.from('teachers').select('*');
+    const { data: teachersData, error: teachError } = await supabase.from('teachers').select('id, name, role, password, managed_class');
     if (!teachError && teachersData) {
       state.teachers = teachersData.map(t => {
         const localTeacher = state.teachers.find(lt => lt.id === t.id);
@@ -500,21 +526,21 @@ export async function syncWithSupabase(state: StoreDataState): Promise<boolean> 
     }
 
     // 6. Sync Students
-    const { data: studentsData, error: studError } = await supabase.from('students').select('*');
+    const { data: studentsData, error: studError } = await supabase.from('students').select('id, name, class_group, angkatan, archived, password, iq_score, eq_score, riasec_scores, dimension_scores, locked_out, lock_reason, test_started, test_completed, test_started_at, test_completed_at, current_question_index, answers, cheat_warnings, ai_analysis, completed_tests, allow_test_types, school_origin, exam_duration_seconds, time_spent_seconds, validation_status, validation_recommendation, validity_score, validity_flags');
     if (!studError && Array.isArray(studentsData)) {
       state.students = studentsData.map(row => mapDatabaseRowToStudent(row));
       saveLocalStorageState(state);
     }
 
     // 7. Sync Registered Classes
-    const { data: classTableData, error: classTableError } = await supabase.from('registered_classes').select('*');
+    const { data: classTableData, error: classTableError } = await supabase.from('registered_classes').select('id, name');
     if (!classTableError && Array.isArray(classTableData)) {
       state.registeredClasses = Array.from(new Set(classTableData.map(c => c.name || c.id))).sort();
       saveLocalStorageState(state);
     }
 
     // 8. Sync Registered Cohorts
-    const { data: cohortTableData, error: cohortTableError } = await supabase.from('registered_cohorts').select('*');
+    const { data: cohortTableData, error: cohortTableError } = await supabase.from('registered_cohorts').select('id, year');
     if (!cohortTableError && Array.isArray(cohortTableData)) {
       state.registeredCohorts = Array.from(new Set(cohortTableData.map(c => Number(c.year || c.id)).filter(y => !isNaN(y)))).sort((a,b) => a-b);
       saveLocalStorageState(state);
@@ -651,6 +677,32 @@ async function upsertTestSettings(state: StoreDataState) {
       discount_percentage: p.discountPercentage || null
     }));
     await resilientUpsert(supabase, 'packages', pkgRows, { onConflict: 'id' });
+  }
+
+  if (state.referrals && state.referrals.length > 0) {
+    const rRows = state.referrals.map(r => ({
+      code: r.code,
+      owner_name: r.ownerName,
+      commission_rate: r.commissionRate || 0,
+      total_earned: r.totalEarned || 0,
+      bank_info: r.bankInfo || null
+    }));
+    await resilientUpsert(supabase, 'referral_codes', rRows, { onConflict: 'code' });
+  }
+
+  if (state.commissions && state.commissions.length > 0) {
+    const cRows = state.commissions.map(c => ({
+      id: c.id,
+      referral_code: c.referralCode,
+      buyer_name: c.buyerName,
+      purchase_amount: c.purchaseAmount || 0,
+      commission_amount: c.commissionAmount || 0,
+      status: c.status || 'Pending',
+      paid_date: c.paidDate || null,
+      transfer_receipt: c.transferReceipt || null,
+      date: c.date || new Date().toISOString()
+    }));
+    await resilientUpsert(supabase, 'commissions', cRows, { onConflict: 'id' });
   }
 
 }

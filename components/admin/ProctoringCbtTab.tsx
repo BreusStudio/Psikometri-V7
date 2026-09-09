@@ -41,8 +41,8 @@ export default function ProctoringCbtTab({ store, students, onRefresh, showNotif
   const completedStudents = students.filter(s => s.testCompleted);
 
   const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (s.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (s.classGroup && s.classGroup.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 

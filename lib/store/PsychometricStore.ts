@@ -1188,6 +1188,10 @@ export class PsychometricStore {
     password?: string;
     gender?: 'L' | 'P';
     schoolOrigin?: string;
+    packageId?: string;
+    packageName?: string;
+    paymentAmount?: number;
+    paymentProofUrl?: string;
   }): Student {
     const rawIdNumber = Math.floor(100000 + Math.random() * 900000);
     const personalId = `USR-${rawIdNumber}`;
@@ -1196,7 +1200,7 @@ export class PsychometricStore {
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const invoiceNumber = `INV/${year}/${month}/${rawIdNumber}`;
-    const assessmentFee = 75000; // Standar biaya asesmen personal (IDR)
+    const assessmentFee = data.paymentAmount || 75000;
     const indonesianPhone = data.phone ? PsychometricStore.formatIndonesianWhatsAppNumber(data.phone) : '';
 
     const newStudent: Student = {
@@ -1215,14 +1219,18 @@ export class PsychometricStore {
       password: cleanPassword,
       context: 'personal',
       status: 'BELUM_TES',
-      testType: 'Minat Bakat & Karir Personal',
+      testType: data.packageName || 'Minat Bakat & Karir Personal',
+      packageId: data.packageId,
+      packageName: data.packageName,
+      paymentProofUrl: data.paymentProofUrl,
       iqScore: null,
       eqScore: null,
       riasecScores: null,
       dimensionScores: null,
       lockedOut: true, // Terkunci hingga admin memverifikasi pembayaran
-      lockReason: 'Menunggu Verifikasi Pembayaran & Aktivasi Akun oleh Admin.',
+      lockReason: 'Menunggu Verifikasi Pembayaran & Aktivasi Akun oleh Admin (Draft/Pending).',
       paymentStatus: 'UNPAID',
+      registrationStatus: 'PENDING',
       invoiceNumber: invoiceNumber,
       amount: assessmentFee,
       paymentVerifiedAt: null,
@@ -1248,38 +1256,91 @@ export class PsychometricStore {
     }
     this.state.registrations.unshift({
       id: `REG-P-${rawIdNumber}`,
-      registrationType: 'personal',
-      schoolName: `Peserta Personal: ${data.name.trim()}`,
+      schoolName: data.name.trim(),
+      schoolType: 'Personal',
       adminEmail: data.email.trim(),
       adminPhone: indonesianPhone || data.phone || '-',
-      address: 'Pendaftaran Mandiri Online',
+      address: data.schoolOrigin || 'Personal / Mandiri',
       estimatedStudents: 1,
-      schoolType: 'Personal',
-      status: 'Pending', // Pending hingga diverifikasi admin
-      paymentStatus: 'UNPAID',
-      invoiceNumber: invoiceNumber,
-      amount: assessmentFee,
-      requestedAt: now.toISOString(),
       adminPassword: cleanPassword,
-      personalStudentId: personalId
+      status: 'Pending',
+      submittedAt: now.toISOString(),
+      invoiceNumber: invoiceNumber,
+      totalAmount: assessmentFee,
+      paymentStatus: 'Unpaid',
+      registrationType: 'personal'
     });
 
-    // Save and sync
     this.saveToStorage({ studentId: personalId });
-
-    // Server backup sync
-    if (typeof window !== 'undefined') {
-      fetch('/api/students', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newStudent)
-      }).catch((err) => {
-        console.warn("Server API registerPersonalStudent sync notice:", err);
-      });
-    }
-
     this.notifyListeners();
     return newStudent;
+  }
+
+  public approveStudentRegistration(studentId: string, verifierName: string = 'Admin'): boolean {
+    const student = this.state.students.find(s => s.id === studentId);
+    if (student) {
+      student.registrationStatus = 'APPROVED';
+      student.paymentStatus = 'PAID';
+      student.lockedOut = false;
+      student.lockReason = null;
+      student.paymentVerifiedAt = new Date().toISOString();
+      student.paymentVerifiedBy = verifierName;
+
+      // Update matching audit log
+      const reg = this.state.registrations?.find(r => r.adminEmail === student.email || r.invoiceNumber === student.invoiceNumber);
+      if (reg) {
+        reg.status = 'Approved';
+        reg.paymentStatus = 'Paid';
+      }
+
+      this.saveToStorage({ studentId });
+      this.notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  public rejectStudentRegistration(studentId: string, reason: string = 'Bukti pembayaran tidak valid'): boolean {
+    const student = this.state.students.find(s => s.id === studentId);
+    if (student) {
+      student.registrationStatus = 'REJECTED';
+      student.paymentStatus = 'REJECTED';
+      student.lockedOut = true;
+      student.rejectionReason = reason;
+      student.lockReason = `Pendaftaran ditolak: ${reason}`;
+
+      const reg = this.state.registrations?.find(r => r.adminEmail === student.email || r.invoiceNumber === student.invoiceNumber);
+      if (reg) {
+        reg.status = 'Rejected';
+        reg.paymentStatus = 'Unpaid';
+      }
+
+      this.saveToStorage({ studentId });
+      this.notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  public draftStudentRegistration(studentId: string): boolean {
+    const student = this.state.students.find(s => s.id === studentId);
+    if (student) {
+      student.registrationStatus = 'PENDING';
+      student.paymentStatus = 'UNPAID';
+      student.lockedOut = true;
+      student.lockReason = 'Menunggu Verifikasi Pembayaran & Aktivasi Akun oleh Admin (Draft/Pending).';
+
+      const reg = this.state.registrations?.find(r => r.adminEmail === student.email || r.invoiceNumber === student.invoiceNumber);
+      if (reg) {
+        reg.status = 'Pending';
+        reg.paymentStatus = 'Unpaid';
+      }
+
+      this.saveToStorage({ studentId });
+      this.notifyListeners();
+      return true;
+    }
+    return false;
   }
 
   public verifyPersonalPayment(studentId: string, adminName: string = 'Superadmin'): boolean {
@@ -1373,23 +1434,24 @@ export class PsychometricStore {
     return false;
   }
 
-  public saveStudent(student: Student): void {
+  public saveStudent(student: Student, skipSave = false): boolean {
     const idx = this.state.students.findIndex(s => s.id === student.id);
+    const newStudents = [...this.state.students];
     if (idx !== -1) {
-      this.state.students[idx] = { ...this.state.students[idx], ...student };
+      newStudents[idx] = { ...newStudents[idx], ...student };
     } else {
-      this.state.students.push(student);
+      newStudents.push(student);
     }
-    this.saveToStorage({ studentId: student.id });
+    this.state.students = newStudents;
+    if (!skipSave) {
+      this.saveToStorage({ studentId: student.id });
+    }
     this.notifyListeners();
+    return true;
   }
 
   public getClasses(): { id: string; name: string }[] {
     return this.getRegisteredClasses().map(c => ({ id: c, name: c }));
-  }
-
-  public getMajors(): SchoolMajor[] {
-    return this.getSchoolMajors();
   }
 
   // Dummy Student Data Operations
@@ -1472,21 +1534,6 @@ export class PsychometricStore {
     }
     this.state.teachers = newTeachers;
     this.saveToStorage({ teachers: true });
-    return true;
-  }
-
-  public saveStudent(s: Student, skipSave = false): boolean {
-    const idx = this.state.students.findIndex(x => x.id === s.id);
-    const newStudents = [...this.state.students];
-    if (idx !== -1) {
-      newStudents[idx] = s;
-    } else {
-      newStudents.push(s);
-    }
-    this.state.students = newStudents;
-    if (!skipSave) {
-      this.saveToStorage({ studentId: s.id });
-    }
     return true;
   }
 
@@ -1872,200 +1919,10 @@ export class PsychometricStore {
     this.state.packages = [...PRESET_PACKAGES];
     this.state.registeredClasses = Array.from(new Set(INITIAL_STUDENTS.map(s => s.classGroup))).filter(Boolean).sort();
     this.state.registeredCohorts = Array.from(new Set(INITIAL_STUDENTS.map(s => s.angkatan))).filter(Boolean).sort((a,b) => a-b);
-    this.state.vouchers = [
-      {
-        code: "VCHR-SMK-001",
-        type: "fixed",
-        value: 0,
-        active: true,
-        usageCount: 0,
-        testCount: 200,
-        testTypes: ["IQ", "EQ", "Holland", "Kepribadian", "Validitas"],
-        adminUsername: "ADMIN_SMK_001",
-        adminPassword: "SMK1PASSWORD",
-        generatedAccounts: Array.from({ length: 200 }, (_, i) => ({
-          username: `SMK-001_${String(i + 1).padStart(3, '0')}`,
-          password: `SMK1PASS${i + 1}`,
-          redeemed: i < 45,
-          redeemedBy: i < 45 ? `Siswa SMK ${i + 1}` : undefined,
-          classGroup: "XII RPL 1"
-        }))
-      },
-      {
-        code: "VCHR-SMA-002",
-        type: "fixed",
-        value: 0,
-        active: true,
-        usageCount: 0,
-        testCount: 80,
-        testTypes: ["IQ", "EQ", "Holland", "Kepribadian", "Validitas"],
-        adminUsername: "ADMIN_SMA_002",
-        adminPassword: "SMA2PASS",
-        generatedAccounts: Array.from({ length: 80 }, (_, i) => ({
-          username: `SMA-002_${String(i + 1).padStart(2, '0')}`,
-          password: `SMA2PASS${i + 1}`,
-          redeemed: i < 20,
-          redeemedBy: i < 20 ? `Siswa SMA ${i + 1}` : undefined,
-          classGroup: "XII MIPA 2"
-        }))
-      },
-      {
-        code: "VCHR-SMP-003",
-        type: "fixed",
-        value: 0,
-        active: true,
-        usageCount: 0,
-        testCount: 1,
-        testTypes: ["IQ", "EQ", "Holland", "Kepribadian", "Validitas"],
-        generatedAccounts: [
-          {
-            username: "SISWA_SMP-003",
-            password: "MANDIRIPASS1",
-            redeemed: true,
-            redeemedBy: "Ahmad Fauzi",
-            classGroup: "XII Mandiri"
-          }
-        ]
-      },
-      {
-        code: "VCHR-CORP-004",
-        type: "fixed",
-        value: 0,
-        active: true,
-        usageCount: 0,
-        testCount: 300,
-        testTypes: ["IQ", "EQ", "Holland", "Kepribadian", "Validitas"],
-        adminUsername: "ADMIN_CORP_004",
-        adminPassword: "PTTECHPASS",
-        generatedAccounts: Array.from({ length: 300 }, (_, i) => ({
-          username: `CORP-004_${String(i + 1).padStart(3, '0')}`,
-          password: `PTTECH${i + 1}`,
-          redeemed: i < 15,
-          redeemedBy: i < 15 ? `Kandidat PTTech ${i + 1}` : undefined,
-          classGroup: "Recruitment Batch 1"
-        }))
-      }
-    ];
-    this.state.referrals = [
-      {
-        code: "BK_PRO_KARTIKA",
-        ownerName: "Bu Kartika Handayani (Guru BK SMA Kartika)",
-        commissionRate: 10,
-        totalEarned: 144000,
-        bankInfo: "BCA - 892019281"
-      },
-      {
-        code: "INDO_ASRI_CONS",
-        ownerName: "Drs. Hermawan M.Psi (Konsultan Karir)",
-        commissionRate: 15,
-        totalEarned: 2310000,
-        bankInfo: "Mandiri - 131002930192"
-      },
-      {
-        code: "AFF_ALUMNI_SMK",
-        ownerName: "Andi Saputra (Ikatan Alumni SMK)",
-        commissionRate: 10,
-        totalEarned: 0,
-        bankInfo: "BNI - 0829102831"
-      }
-    ];
-    this.state.commissions = [
-      {
-        id: "COM-001",
-        referralCode: "INDO_ASRI_CONS",
-        buyerName: "SMKN 1 Bandung",
-        purchaseAmount: 3400000,
-        commissionAmount: 510000,
-        status: "Paid",
-        paidDate: "2026-07-16T11:00:00Z",
-        transferReceipt: "https://picsum.photos/seed/receipt1/400/600",
-        date: "2026-07-15T08:30:00Z"
-      },
-      {
-        id: "COM-002",
-        referralCode: "BK_PRO_KARTIKA",
-        buyerName: "SMA Budi Luhur",
-        purchaseAmount: 1440000,
-        commissionAmount: 144000,
-        status: "Paid",
-        paidDate: "2026-07-21T14:30:00Z",
-        transferReceipt: "https://picsum.photos/seed/receipt2/400/600",
-        date: "2026-07-20T10:15:00Z"
-      },
-      {
-        id: "COM-003",
-        referralCode: "INDO_ASRI_CONS",
-        buyerName: "PT Tech Solusindo",
-        purchaseAmount: 12000000,
-        commissionAmount: 1800000,
-        status: "Pending",
-        paidDate: null,
-        transferReceipt: null,
-        date: "2026-07-29T16:45:00Z"
-      }
-    ];
-    this.state.purchases = [
-      {
-        id: "TX-SMK-001",
-        platform: "Manual",
-        packageName: "Paket Vokasi SMK & SMA Standard",
-        buyerName: "SMKN 1 Bandung",
-        buyerEmail: "info@smkn1bandung.sch.id",
-        amount: 3400000,
-        voucherUsed: null,
-        referralUsed: "INDO_ASRI_CONS",
-        commissionEarned: 510000,
-        date: "2026-07-15T08:30:00Z",
-        status: "Completed",
-        quotaAdded: 200,
-        generatedVoucher: "VCHR-SMK-001"
-      },
-      {
-        id: "TX-SMA-002",
-        platform: "Shopee",
-        packageName: "Paket Peminatan Sekolah",
-        buyerName: "SMA Budi Luhur",
-        buyerEmail: "budi.luhur@sch.id",
-        amount: 1440000,
-        voucherUsed: null,
-        referralUsed: "BK_PRO_KARTIKA",
-        commissionEarned: 144000,
-        date: "2026-07-20T10:15:00Z",
-        status: "Completed",
-        quotaAdded: 80,
-        generatedVoucher: "VCHR-SMA-002"
-      },
-      {
-        id: "TX-SMP-003",
-        platform: "QRIS",
-        packageName: "Paket Mandiri Personal",
-        buyerName: "Ahmad Fauzi",
-        buyerEmail: "ahmad.fauzi@gmail.com",
-        amount: 99000,
-        voucherUsed: null,
-        referralUsed: null,
-        commissionEarned: 0,
-        date: "2026-07-28T13:20:00Z",
-        status: "Completed",
-        quotaAdded: 1,
-        generatedVoucher: "VCHR-SMP-003"
-      },
-      {
-        id: "TX-CORP-004",
-        platform: "Manual",
-        packageName: "Paket Rekrutmen & Executive Assessment",
-        buyerName: "PT Tech Solusindo",
-        buyerEmail: "hr@techsolusindo.com",
-        amount: 12000000,
-        voucherUsed: null,
-        referralUsed: "INDO_ASRI_CONS",
-        commissionEarned: 1800000,
-        date: "2026-07-29T16:45:00Z",
-        status: "Completed",
-        quotaAdded: 300,
-        generatedVoucher: "VCHR-CORP-004"
-      }
-    ];
+    this.state.vouchers = [];
+    this.state.referrals = [];
+    this.state.commissions = [];
+    this.state.purchases = [];
     this.state.teachers = [...INITIAL_TEACHERS];
     
     this.saveLocalStorageOnly();

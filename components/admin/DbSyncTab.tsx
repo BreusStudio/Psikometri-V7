@@ -57,7 +57,7 @@ export default function DbSyncTab({
     { id: 'registered_classes', name: 'registered_classes', exists: null, rows: 0, description: 'Daftar master kelas terdaftar (misal: XII RPL 1, XI TKJ 2).' },
     { id: 'registered_cohorts', name: 'registered_cohorts', exists: null, rows: 0, description: 'Daftar master tahun angkatan terdaftar (misal: 2024, 2025, 2026).' },
     { id: 'vouchers', name: 'vouchers', exists: null, rows: 0, description: 'Data lisensi & voucher paket kelompok/mandiri beserta pre-generated credentials siswa.' },
-    { id: 'referrals', name: 'referrals', exists: null, rows: 0, description: 'Akun rujukan afiliasi, melacak persentase komisi, kode referral, dan rincian rekening bank.' },
+    { id: 'referral_codes', name: 'referral_codes', exists: null, rows: 0, description: 'Akun rujukan afiliasi, melacak persentase komisi, kode referral, dan rincian rekening bank.' },
     { id: 'commissions', name: 'commissions', exists: null, rows: 0, description: 'Catatan komisi marketing / afiliasi, status pembayaran, nominal komisi, dan link tanda terima.' },
     { id: 'purchases', name: 'purchases', exists: null, rows: 0, description: 'Log transaksi pembelian paket dari channel marketplace (TikTok, Shopee, QRIS, Manual).' },
     { id: 'packages', name: 'packages', exists: null, rows: 0, description: 'Katalog paket harga dan paket bundel ujian (Personal, Sekolah, Corporate).' }
@@ -470,6 +470,38 @@ export default function DbSyncTab({
             throw new Error(`Gagal menyimpan ke Supabase: ${error.message}`);
           }
         }
+      }
+
+      // Push Vouchers, Referrals, Packages
+      if (store.getVouchers && store.getVouchers().length > 0) {
+        const vRows = store.getVouchers().map((v: any) => ({
+          code: v.code,
+          type: v.type,
+          value: v.value,
+          active: v.active,
+          usage_count: v.usageCount,
+          school_name: v.schoolName,
+          max_usage: v.maxUsage,
+          is_unlimited: v.isUnlimited,
+          expired_at: v.expiredAt,
+          test_types: v.testTypes,
+          test_count: v.testCount,
+          generated_accounts: v.generatedAccounts,
+          admin_username: v.adminUsername,
+          admin_password: v.adminPassword
+        }));
+        await supabase.from('vouchers').upsert(vRows, { onConflict: 'code' });
+      }
+
+      if (store.getReferrals && store.getReferrals().length > 0) {
+        const refRows = store.getReferrals().map((r: any) => ({
+          code: r.code,
+          owner_name: r.ownerName,
+          commission_rate: r.commissionRate,
+          total_earned: r.totalEarned,
+          bank_info: r.bankInfo || ''
+        }));
+        await supabase.from('referral_codes').upsert(refRows, { onConflict: 'code' });
       }
 
       setSyncLogs(prev => [...prev, `✨ SINKRONISASI SELESAI! Semua data lokal berhasil diunggah.`]);
