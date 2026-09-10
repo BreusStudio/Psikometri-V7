@@ -17,6 +17,3 @@ export {
 } from './mock/presets';
 
 export { PsychometricStore };
-
-// Global Single Instance Export
-export const mockDatabase = new PsychometricStore();

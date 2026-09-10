@@ -1,7 +1,4 @@
 import { Question, Student, Teacher } from './types';
-import { BLOCK1_RAW_CSV } from './data/block1RawCsv';
-import { BLOCK2_RAW_CSV } from './data/block2RawCsv';
-import { parseVocationalQuestionsCsv } from './data/parseCsvQuestions';
 
 export const ARCHIVED_LEGACY_QUESTIONS: Question[] = [
   {
@@ -89,14 +86,11 @@ export const ARCHIVED_LEGACY_QUESTIONS: Question[] = [
   }
 ];
 
-export const BLOCK1_QUESTIONS: Question[] = parseVocationalQuestionsCsv(BLOCK1_RAW_CSV, 'PKG-VOKASI-A');
-export const BLOCK2_QUESTIONS: Question[] = parseVocationalQuestionsCsv(BLOCK2_RAW_CSV, 'PKG-VOKASI-B');
+export const BLOCK1_QUESTIONS: Question[] = [];
+export const BLOCK2_QUESTIONS: Question[] = [];
 
-export const PRESET_QUESTIONS: Question[] = [
-  ...BLOCK1_QUESTIONS,
-  ...BLOCK2_QUESTIONS,
-  ...ARCHIVED_LEGACY_QUESTIONS
-];
+// Questions are sourced dynamically from Supabase database
+export const PRESET_QUESTIONS: Question[] = [];
 
 // Seed Initial Students Data - Empty by default (All students sourced from Supabase)
 export const INITIAL_STUDENTS: Student[] = [];

@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { withApiHandler, apiResponse, ApiError, parsePaginationParams, parseRequestBody } from '@/lib/api';
 import { supabase, isSupabaseConfigured, initSupabaseClient, resilientUpsert } from '@/lib/supabase';
 import { getServerConfig } from '@/lib/serverConfig';
-import { INITIAL_STUDENTS } from '@/lib/presetQuestions';
 import { Student } from '@/lib/types';
 import { mapDatabaseRowToStudent } from '@/lib/store/dbMappers';
 import { mapStudentToDbRow } from '@/lib/store/supabaseSync';
@@ -20,40 +19,46 @@ function getActiveSupabaseClient() {
 }
 
 /**
- * GET /api/students - Paginated List & Search of Students from DB or Fallback
+ * GET /api/students - Real Paginated & Database-Sorted List of Students
  */
 export const GET = withApiHandler(async (req: NextRequest) => {
   const { page, limit, search, sortBy, order } = parsePaginationParams(req);
   const client = getActiveSupabaseClient();
 
-  let results: Student[] = [];
+  if (!client) {
+    return apiResponse.paginate([], page, limit, 0);
+  }
 
-  if (client) {
-    try {
-      let query = client.from('students').select('*');
-      if (search) {
-        query = query.or(`name.ilike.%${search}%,id.ilike.%${search}%,class_group.ilike.%${search}%`);
-      }
-      const { data, error } = await query;
-      if (!error && Array.isArray(data)) {
-        results = data.map(mapDatabaseRowToStudent);
-      }
-    } catch (err) {
-      console.warn('[Students API] Database query caught:', err);
+  try {
+    let query = client.from('students').select('*', { count: 'exact' });
+
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,id.ilike.%${search}%,class_group.ilike.%${search}%`);
     }
+
+    const sortColumn = sortBy === 'name' ? 'name' : sortBy === 'id' ? 'id' : 'name';
+    const isAscending = order !== 'desc';
+    query = query.order(sortColumn, { ascending: isAscending });
+
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit - 1;
+    query = query.range(startIndex, endIndex);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.warn('[Students API] Database query error:', error);
+      return apiResponse.paginate([], page, limit, 0);
+    }
+
+    const items: Student[] = Array.isArray(data) ? data.map(mapDatabaseRowToStudent) : [];
+    const total = typeof count === 'number' ? count : items.length;
+
+    return apiResponse.paginate(items, page, limit, total);
+  } catch (err) {
+    console.warn('[Students API] Database query caught:', err);
+    return apiResponse.paginate([], page, limit, 0);
   }
-
-  if (sortBy === 'name') {
-    results.sort((a, b) => (order === 'desc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)));
-  } else if (sortBy === 'id') {
-    results.sort((a, b) => (order === 'desc' ? b.id.localeCompare(a.id) : a.id.localeCompare(b.id)));
-  }
-
-  const total = results.length;
-  const startIndex = (page - 1) * limit;
-  const paginatedItems = results.slice(startIndex, startIndex + limit);
-
-  return apiResponse.paginate(paginatedItems, page, limit, total);
 });
 
 /**

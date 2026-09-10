@@ -23,26 +23,14 @@ import {
 
 // Import modular tab components
 import DashboardTab from './admin/DashboardTab';
-import ReportsTab from './admin/ReportsTab';
-import StudentsTab from './admin/StudentsTab';
-import QuestionsTab from './admin/QuestionsTab';
-import MajorsTab from './admin/MajorsTab';
-import DimensionsTab from './admin/DimensionsTab';
-import SettingsTab from './admin/SettingsTab';
 import UsersTab from './admin/UsersTab';
-import TestTypesTab from './admin/TestTypesTab';
 import WaliKelasTab from './admin/WaliKelasTab';
 import KakomliTab from './admin/KakomliTab';
-import ClassesCohortsTab from './admin/ClassesCohortsTab';
 import LicensesTab from './admin/LicensesTab';
 import PackagesTab from './admin/PackagesTab';
-import CertificateSettingsTab from './admin/CertificateSettingsTab';
-import RekapKelasTab from './admin/RekapKelasTab';
-import DbSyncTab from './admin/DbSyncTab';
 import ProctoringCbtTab from './admin/ProctoringCbtTab';
 import PanduanRoleTab from './admin/PanduanRoleTab';
 import RegistrationsTab from './admin/RegistrationsTab';
-import LandingEditorTab from './admin/LandingEditorTab';
 import CbtContentTab from './admin/CbtContentTab';
 import ReportsHubTab from './admin/ReportsHubTab';
 import StudentsHubTab from './admin/StudentsHubTab';

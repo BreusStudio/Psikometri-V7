@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { TestSettings } from '../../lib/types';
 import { isSupabaseConfigured } from '../../lib/supabase';
+import { ServerCredentialsSection, EnvironmentSection } from './settings';
 
 // Reusable, Symmetrical, Space-Saving Setting Toggle Row (DRY & Ergonomic)
 function SettingToggleRow({
@@ -673,282 +674,38 @@ export default function SettingsTab({
         </div>
       )}
 
-      {/* 4.5. SYSTEM & DATABASE CONSOLE (Superadmin & Admin Only) */}
       {/* 5. SERVER DATABASE & API CREDENTIALS */}
       {activeSubTab === 'kredensial' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm max-w-2xl mx-auto space-y-6 text-left">
-          <div className="flex items-start gap-4 border-b border-slate-100 pb-4">
-            <div className="bg-indigo-50 text-indigo-700 p-3 rounded-xl shrink-0">
-              <Key className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-800">Konfigurasi Kredensial Supabase & Gemini (Superadmin Only)</h2>
-              <p className="text-xs text-slate-500 mt-1">Kredensial disimpan secara aman di sisi server untuk menghubungkan data bank soal ke Supabase dan mengaktifkan Gemini AI.</p>
-            </div>
-          </div>
-
-          {isLoadingConfig ? (
-            <div className="flex items-center justify-center py-6 gap-2 text-xs font-bold text-slate-500">
-              <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
-              <span>Memuat konfigurasi server...</span>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {configError && (
-                <div className="p-3 bg-red-50 border border-red-150 text-red-700 text-xs font-semibold rounded-lg flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                  <span>{configError}</span>
-                </div>
-              )}
-
-              {configSuccess && (
-                <div className="p-3 bg-emerald-50 border border-emerald-150 text-emerald-800 text-xs font-semibold rounded-lg flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                  <span>{configSuccess}</span>
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                  <Database className="w-3.5 h-3.5 text-indigo-500" />
-                  Supabase URL
-                </label>
-                <input
-                  type="text"
-                  value={supabaseUrl}
-                  onChange={(e) => setSupabaseUrl(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  placeholder="https://your-project.supabase.co"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                  <Key className="w-3.5 h-3.5 text-indigo-500" />
-                  Supabase Anon Key
-                </label>
-                <div className="relative">
-                  <input
-                    type={showAnonKey ? "text" : "password"}
-                    value={supabaseAnonKey}
-                    onChange={(e) => setSupabaseAnonKey(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    placeholder="your-supabase-anon-key"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowAnonKey(!showAnonKey)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                  >
-                    {showAnonKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5 text-indigo-500" />
-                  Gemini API Key
-                </label>
-                <div className="relative">
-                  <input
-                    type={showApiKey ? "text" : "password"}
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-3 pr-10 py-2 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    placeholder="AIzaSy..."
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                  >
-                    {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-              </div>
-
-              {!showAdminPasswordInput ? (
-                <button
-                  type="button"
-                  onClick={() => setShowAdminPasswordInput(true)}
-                  className="w-full text-xs font-bold py-2.5 bg-indigo-950 hover:bg-indigo-900 text-white rounded-lg transition-all shadow-md active:scale-[0.99] mt-2 cursor-pointer"
-                >
-                  Simpan Kredensial Server
-                </button>
-              ) : (
-                <div className="p-4 bg-indigo-50 border border-indigo-150 rounded-lg space-y-3 mt-4 animate-fade-in">
-                  <span className="text-[10px] font-black uppercase text-indigo-950 block tracking-wider">Konfirmasi Keamanan:</span>
-                  <p className="text-[10px] text-indigo-900 leading-relaxed font-medium">
-                    Silakan masukkan password akun Superadmin/Admin Anda untuk memverifikasi penyimpanan kredensial server.
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="password"
-                      value={adminPasswordInput}
-                      onChange={(e) => setAdminPasswordInput(e.target.value)}
-                      className="flex-1 bg-white border border-indigo-200 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                      placeholder="Password..."
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSaveCredentials}
-                      disabled={isSavingConfig}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
-                    >
-                      {isSavingConfig ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Check className="w-3 h-3" />
-                      )}
-                      Terapkan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAdminPasswordInput(false);
-                        setAdminPasswordInput('');
-                      }}
-                      className="px-3 py-2 border border-slate-250 hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-600 shrink-0 cursor-pointer"
-                    >
-                      Batal
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <ServerCredentialsSection
+          isLoadingConfig={isLoadingConfig}
+          configError={configError}
+          configSuccess={configSuccess}
+          supabaseUrl={supabaseUrl}
+          setSupabaseUrl={setSupabaseUrl}
+          supabaseAnonKey={supabaseAnonKey}
+          setSupabaseAnonKey={setSupabaseAnonKey}
+          showAnonKey={showAnonKey}
+          setShowAnonKey={setShowAnonKey}
+          geminiApiKey={geminiApiKey}
+          setGeminiApiKey={setGeminiApiKey}
+          showApiKey={showApiKey}
+          setShowApiKey={setShowApiKey}
+          showAdminPasswordInput={showAdminPasswordInput}
+          setShowAdminPasswordInput={setShowAdminPasswordInput}
+          adminPasswordInput={adminPasswordInput}
+          setAdminPasswordInput={setAdminPasswordInput}
+          isSavingConfig={isSavingConfig}
+          handleSaveCredentials={handleSaveCredentials}
+        />
       )}
 
       {/* 3. ENVIRONMENT & BUILD MODE SETTINGS */}
       {activeSubTab === 'env' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm max-w-3xl mx-auto space-y-6 text-left">
-          <div className="flex items-start gap-4 border-b border-slate-100 pb-4">
-            <div className="bg-indigo-50 text-indigo-700 p-3 rounded-xl shrink-0">
-              <Cpu className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-slate-800">Mode Lingkungan (Environment) & Strategi Dev</h2>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
-                  appEnv === 'development' 
-                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
-                    : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
-                }`}>
-                  {appEnv.toUpperCase()} MODE
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Atur mode operasional sistem untuk mengomunikasikan status pengkodean, validasi instan, dan optimasi siklus iterasi.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            {/* Mode Switcher Card */}
-            <div className="p-5 bg-slate-50/70 rounded-xl border border-slate-200 space-y-4">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Status Operasional Aplikasi
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => handleSaveEnvSettings('development', validationStrategy)}
-                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
-                    appEnv === 'development'
-                      ? 'bg-emerald-50/80 border-emerald-300 ring-2 ring-emerald-500/20 shadow-xs'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Development Mode
-                    </span>
-                    {appEnv === 'development' && <Check className="w-4 h-4 text-emerald-600" />}
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                    Fokus pada kecepatan iterasi & AI Assistant. Perubahan kode divalidasi dengan linter instan tanpa overhead static build.
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleSaveEnvSettings('production', validationStrategy)}
-                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
-                    appEnv === 'production'
-                      ? 'bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-500/20 shadow-xs'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
-                      Production Mode
-                    </span>
-                    {appEnv === 'production' && <Check className="w-4 h-4 text-indigo-600" />}
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                    Stabil & siap rilis. Semua aset diproduksi secara teroptimasi untuk end-user, guru, dan peserta ujian CBT.
-                  </p>
-                </button>
-              </div>
-            </div>
-
-            {/* Validation Strategy Card */}
-            <div className="p-5 bg-slate-50/70 rounded-xl border border-slate-200 space-y-4">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Strategi Validasi AI & Build Code
-              </h3>
-
-              <div className="space-y-3">
-                <label className="flex items-start gap-3 p-3.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-indigo-300 transition-colors">
-                  <input
-                    type="radio"
-                    name="valStrategy"
-                    checked={validationStrategy === 'fast_dev'}
-                    onChange={() => handleSaveEnvSettings(appEnv, 'fast_dev')}
-                    className="mt-0.5 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <div>
-                    <div className="text-xs font-bold text-slate-800">Dynamic Linter & Instant Validation (Direkomendasikan)</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                      Memvalidasi syntax & tipe data secara instan via lint_applet (1-3 detik), menghindari penundaan build container yang memakan waktu lama.
-                    </div>
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-3 p-3.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-indigo-300 transition-colors">
-                  <input
-                    type="radio"
-                    name="valStrategy"
-                    checked={validationStrategy === 'strict_build'}
-                    onChange={() => handleSaveEnvSettings(appEnv, 'strict_build')}
-                    className="mt-0.5 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <div>
-                    <div className="text-xs font-bold text-slate-800">Full Production Static Compilation</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5 font-medium">
-                      Melakukan compile_applet lengkap. Gunakan opsi ini saat mendekati rilis akhir aplikasi.
-                    </div>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {/* Information Banner */}
-            <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-xl flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="text-xs text-amber-900 leading-relaxed font-medium">
-                <span className="font-bold block mb-0.5">Panduan AI Studio Development Mode:</span>
-                Next.js App Router di Cloud Run container menyajikan perubahan kode secara otomatis melalui dev server internal. Saat melakukan diskusi atau iterasi fitur, pastikan mode berada di <strong className="font-bold">Development Mode</strong> agar respon dan validasi kode berlangsung super cepat.
-              </div>
-            </div>
-          </div>
-        </div>
+        <EnvironmentSection
+          appEnv={appEnv}
+          validationStrategy={validationStrategy}
+          handleSaveEnvSettings={handleSaveEnvSettings}
+        />
       )}
 
       {/* Custom Confirmation Modal */}
