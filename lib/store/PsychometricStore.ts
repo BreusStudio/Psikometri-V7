@@ -118,7 +118,19 @@ export class PsychometricStore {
   }
 
   public setupRealtime(): (() => void) | undefined {
-    return setupRealtimeSubscriptions(this.state, () => this.notifyListeners());
+    return setupRealtimeSubscriptions(
+      this.state,
+      () => this.notifyListeners(),
+      (targets) => {
+        if (targets.questions) {
+          this.rebuildQuestionsIndex();
+        }
+        if (targets.students || targets.settings) {
+          this.recalculateAllScores();
+        }
+        this.saveLocalStorageOnly();
+      }
+    );
   }
 
   public async syncWithSupabase(): Promise<boolean> {

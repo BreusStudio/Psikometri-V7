@@ -103,13 +103,63 @@ export function mapStudentToCoreDbRow(s: Student) {
   };
 }
 
+export interface RealtimeBatchTargets {
+  students?: boolean;
+  questions?: boolean;
+  settings?: boolean;
+  teachers?: boolean;
+  classes?: boolean;
+  cohorts?: boolean;
+  vouchers?: boolean;
+  purchases?: boolean;
+  registrations?: boolean;
+  dimensions?: boolean;
+  majors?: boolean;
+}
+
 export function setupRealtimeSubscriptions(
   state: StoreDataState,
-  notify: () => void
+  notify: () => void,
+  onBatchCommitted?: (targets: RealtimeBatchTargets) => void
 ): (() => void) | undefined {
   if (!getIsSupabaseConfigured() || !supabase) return undefined;
 
   const client = supabase;
+  let batchTimer: any = null;
+  const pendingTargets: RealtimeBatchTargets = {};
+
+  const scheduleBatchFlush = (targetKey: keyof RealtimeBatchTargets) => {
+    pendingTargets[targetKey] = true;
+    if (batchTimer !== null) return;
+
+    batchTimer = setTimeout(() => {
+      batchTimer = null;
+      const targetsSnapshot = { ...pendingTargets };
+      for (const k in pendingTargets) {
+        delete (pendingTargets as any)[k];
+      }
+
+      // 1. Persist directly to local cache first for instant cross-tab / refresh availability
+      try {
+        saveLocalStorageState(state);
+      } catch (err) {
+        console.warn('Realtime local cache save warning:', err);
+      }
+
+      // 2. Trigger store callbacks (e.g. rebuildQuestionsIndex, score calculation)
+      if (onBatchCommitted) {
+        try {
+          onBatchCommitted(targetsSnapshot);
+        } catch (err) {
+          console.error('Realtime onBatchCommitted hook error:', err);
+        }
+      }
+
+      // 3. Batched UI notification
+      notify();
+    }, 35); // 35ms debounced batch window for 60fps smooth sync
+  };
+
   const channel = client
     .channel('schema-db-changes')
     .on(
@@ -120,7 +170,17 @@ export function setupRealtimeSubscriptions(
           const updatedStudent = mapDatabaseRowToStudent(payload.new);
           const idx = state.students.findIndex(s => s.id === updatedStudent.id);
           if (idx >= 0) {
-            state.students[idx] = updatedStudent;
+            const existing = state.students[idx];
+            // Merge smart answers: preserve any existing local answers if not present in payload
+            const mergedAnswers = {
+              ...(existing.answers || {}),
+              ...(updatedStudent.answers || {})
+            };
+            state.students[idx] = {
+              ...existing,
+              ...updatedStudent,
+              answers: mergedAnswers
+            };
           } else {
             state.students.push(updatedStudent);
           }
@@ -130,7 +190,7 @@ export function setupRealtimeSubscriptions(
             state.students = state.students.filter(s => s.id !== deletedId);
           }
         }
-        notify();
+        scheduleBatchFlush('students');
       }
     )
     .on(
@@ -177,7 +237,7 @@ export function setupRealtimeSubscriptions(
           if (typeof row.quota_added === 'number') state.quotaAdded = row.quota_added;
           if (Array.isArray(row.test_types)) state.testTypes = row.test_types;
         }
-        notify();
+        scheduleBatchFlush('settings');
       }
     )
     .on(
@@ -196,7 +256,7 @@ export function setupRealtimeSubscriptions(
             state.registeredClasses = state.registeredClasses.filter(c => c !== name);
           }
         }
-        notify();
+        scheduleBatchFlush('classes');
       }
     )
     .on(
@@ -205,19 +265,19 @@ export function setupRealtimeSubscriptions(
       async (payload) => {
         if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
           const updatedQ = mapDatabaseRowToQuestion(payload.new);
-          const idx = state.questions.findIndex(q => q.id === updatedQ.id);
+          const idx = state.questions.findIndex(q => String(q.id) === String(updatedQ.id));
           if (idx >= 0) {
-            state.questions[idx] = updatedQ;
+            state.questions[idx] = { ...state.questions[idx], ...updatedQ };
           } else {
             state.questions.push(updatedQ);
           }
         } else if (payload.eventType === 'DELETE') {
           const deletedId = payload.old?.id;
           if (deletedId) {
-            state.questions = state.questions.filter(q => q.id !== deletedId);
+            state.questions = state.questions.filter(q => String(q.id) !== String(deletedId));
           }
         }
-        notify();
+        scheduleBatchFlush('questions');
       }
     )
     .on(
@@ -245,7 +305,7 @@ export function setupRealtimeSubscriptions(
             state.teachers = state.teachers.filter(x => x.id !== deletedId);
           }
         }
-        notify();
+        scheduleBatchFlush('teachers');
       }
     )
     .on(
@@ -256,7 +316,7 @@ export function setupRealtimeSubscriptions(
           const year = Number(payload.new?.year || payload.new?.id);
           if (!isNaN(year) && !state.registeredCohorts.includes(year)) {
             state.registeredCohorts.push(year);
-            state.registeredCohorts.sort((a,b) => a-b);
+            state.registeredCohorts.sort((a, b) => a - b);
           }
         } else if (payload.eventType === 'DELETE') {
           const year = Number(payload.old?.year || payload.old?.id);
@@ -264,7 +324,7 @@ export function setupRealtimeSubscriptions(
             state.registeredCohorts = state.registeredCohorts.filter(y => y !== year);
           }
         }
-        notify();
+        scheduleBatchFlush('cohorts');
       }
     )
     .on(
@@ -287,7 +347,7 @@ export function setupRealtimeSubscriptions(
             state.purchases = state.purchases.filter(p => p.id !== deletedId);
           }
         }
-        notify();
+        scheduleBatchFlush('purchases');
       }
     )
     .on(
@@ -310,7 +370,7 @@ export function setupRealtimeSubscriptions(
             state.vouchers = state.vouchers.filter(v => v.code.toUpperCase() !== String(deletedCode).toUpperCase());
           }
         }
-        notify();
+        scheduleBatchFlush('vouchers');
       }
     )
     .on(
@@ -334,12 +394,16 @@ export function setupRealtimeSubscriptions(
             state.registrations = state.registrations.filter(r => r.id !== deletedId);
           }
         }
-        notify();
+        scheduleBatchFlush('registrations');
       }
     )
     .subscribe();
 
   return () => {
+    if (batchTimer !== null) {
+      clearTimeout(batchTimer);
+      batchTimer = null;
+    }
     client.removeChannel(channel);
   };
 }
