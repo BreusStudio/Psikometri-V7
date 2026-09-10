@@ -167,6 +167,11 @@ export function generateSqlMigrationPatch(): string {
     personal_quota: 'INT DEFAULT 0',
     choices: 'JSONB DEFAULT \'[]\'::jsonb',
     answers: 'JSONB DEFAULT \'{}\'::jsonb',
+    rubric: 'TEXT',
+    option_scores: 'JSONB',
+    is_validated: 'BOOLEAN DEFAULT false',
+    verification_status: 'TEXT DEFAULT \'DRAFT\'',
+    weight: 'NUMERIC DEFAULT 1',
     riasec_scores: 'JSONB DEFAULT \'{}\'::jsonb',
     iq_score: 'NUMERIC',
     test_type: 'TEXT',
@@ -215,7 +220,10 @@ export function generateSqlMigrationPatch(): string {
   lines.push('CREATE INDEX IF NOT EXISTS idx_student_answers_student ON public.student_answers (student_id);');
   lines.push('CREATE INDEX IF NOT EXISTS idx_questions_category ON public.questions (category, is_active);');
 
-  lines.push('\n-- 5. PAKSA RELOAD CACHE SKEMA POSTGREST SUPABASE:');
+  lines.push('\n-- 5. REALTIME REPLICATION (MULTI-DEVICE INSTANT SYNC):');
+  lines.push('ALTER PUBLICATION supabase_realtime ADD TABLE IF NOT EXISTS public.questions, public.students, public.test_settings, public.teachers, public.registered_classes;');
+
+  lines.push('\n-- 6. PAKSA RELOAD CACHE SKEMA POSTGREST SUPABASE:');
   lines.push(`NOTIFY pgrst, 'reload schema';`);
 
   return lines.join('\n');

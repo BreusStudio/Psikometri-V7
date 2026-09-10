@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   allowedDevOrigins: ['*.run.app', 'localhost:3000'],
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts'],
+    optimizePackageImports: ['lucide-react', 'recharts', 'motion'],
   },
   images: {
     remotePatterns: [

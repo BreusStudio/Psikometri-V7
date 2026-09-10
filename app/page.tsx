@@ -77,6 +77,10 @@ export default function Home() {
 
   useEffect(() => {
     setIsMounted(true);
+    const initialInst = getStoreInstance();
+    if (initialInst) {
+      setStore(initialInst);
+    }
     
     // Safety watchdog timer: force fallback if initialization hangs on slow/restricted devices after 4 seconds
     const watchdogTimer = setTimeout(() => {

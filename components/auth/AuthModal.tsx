@@ -162,8 +162,8 @@ export function AuthModal({
       const cleanPass = loginPassword.trim();
       const inputDigits = cleanInput.replace(/\D/g, '');
 
-      // Trigger sync with Supabase first if available
-      await store.syncWithSupabase().catch(() => {});
+      // Trigger sync with Supabase in background (non-blocking for instant login)
+      store.syncWithSupabase().catch(() => {});
 
       if (loginRole === 'student') {
         const students = store.getStudents();
@@ -257,6 +257,30 @@ export function AuthModal({
           Boolean(t.name && t.name.toLowerCase() === cleanInput.toLowerCase()) ||
           Boolean(t.phone && inputDigits.length >= 8 && t.phone.replace(/\D/g, '').endsWith(inputDigits))
         );
+
+        // Direct Supabase query fallback for teacher if not found locally
+        if (!foundTeacher && isSupabaseConfigured && supabase) {
+          try {
+            const { data } = await supabase
+              .from('teachers')
+              .select('*')
+              .or(`id.ilike.${cleanInput},name.ilike.${cleanInput}`)
+              .maybeSingle();
+            if (data) {
+              const mappedTeacher = {
+                id: data.id,
+                name: data.name,
+                role: data.role,
+                password: data.password,
+                managed_class: data.managed_class || undefined
+              };
+              store.saveTeacher(mappedTeacher);
+              foundTeacher = mappedTeacher;
+            }
+          } catch (err) {
+            console.error('Supabase direct teacher check error:', err);
+          }
+        }
 
         // Auto-detect role fallback: if not found in teachers, check if registered as Student/User
         if (!foundTeacher) {

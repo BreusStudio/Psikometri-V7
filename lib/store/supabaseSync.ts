@@ -9,7 +9,8 @@ export function mapQuestionToDbRow(q: Question) {
   const isValidated = Boolean(
     (q as any).is_validated || 
     (q as any).isValidated || 
-    q.verificationStatus === 'VERIFIED'
+    q.verificationStatus === 'VERIFIED' ||
+    (q as any).verification_status === 'VERIFIED'
   );
 
   return {
@@ -21,9 +22,14 @@ export function mapQuestionToDbRow(q: Question) {
     choices: Array.isArray(q.choices) ? q.choices : [],
     answers: (q as any).answers || q.optionScores || null,
     rubric: (q as any).rubric || null,
-    is_validated: isValidated,
+    option_scores: (q as any).optionScores || (q as any).answers || null,
     weight: (q as any).weight || 1,
+    is_validated: isValidated,
+    verification_status: isValidated ? 'VERIFIED' : (q.verificationStatus || (q as any).verification_status || 'DRAFT'),
     image_url: q.imageUrl || null,
+    explanation: (q as any).explanation || null,
+    is_active: (q as any).isActive !== undefined ? (q as any).isActive : true,
+    deleted_at: (q as any).deletedAt || null,
     updated_at: new Date().toISOString()
   };
 }
@@ -448,10 +454,10 @@ export async function syncWithSupabase(state: StoreDataState): Promise<boolean> 
       ] = await Promise.all([
         supabase.from('vouchers').select('code, type, value, active, usage_count, school_name, max_usage, is_unlimited, expired_at, test_types, test_count, generated_accounts, admin_username, admin_password'),
         supabase.from('purchases').select('id, platform, package_name, buyer_name, buyer_email, amount, voucher_used, referral_used, commission_earned, date, status, quota_added, generated_voucher'),
-        supabase.from('referral_codes').select('code, owner_name, commission_rate, total_earned, bank_info'),
+        supabase.from('referrals').select('*'),
         supabase.from('commissions').select('id, referral_code, buyer_name, purchase_amount, commission_amount, status, paid_date, transfer_receipt, date'),
         supabase.from('packages').select('id, name, price, test_count, category, description, test_types, active, logo_url, header_title, institution_name, institution_sub, signature_name, signature_title, signature_nip, education_levels, popular, quota, original_price, features, badge_text, test_type_id, price_per_account, discount_percentage'),
-        supabase.from('questions').select('id, test_type, dimension, text, choices, image_url, rubric, option_scores, weight, is_validated, verification_status'),
+        supabase.from('questions').select('*'),
         supabase.from('dimensions').select('id, name, test_type, description'),
         supabase.from('school_majors').select('id, code, name, riasec_type, description'),
         supabase.from('teachers').select('id, name, role, password, managed_class'),
@@ -892,9 +898,21 @@ export async function saveToSupabaseTarget(
     if (actualTarget.deleteQuestionId) {
       const { error } = await client.from('questions').delete().eq('id', actualTarget.deleteQuestionId);
       if (error) console.error("Supabase error deleting question:", error);
+    } else if (actualTarget.questionId) {
+      const targetQ = state.questions.find(q => String(q.id) === String(actualTarget.questionId));
+      if (targetQ) {
+        const row = mapQuestionToDbRow(targetQ);
+        const { error } = await resilientUpsert(client, 'questions', [row]);
+        if (error) console.error("Supabase error upserting single question:", error);
+      }
     } else if (actualTarget.questions && state.questions.length > 0) {
-      const { error } = await resilientUpsert(client, 'questions', state.questions.map(q => mapQuestionToDbRow(q)));
-      if (error) console.error("Supabase error upserting questions:", error);
+      const rows = state.questions.map(q => mapQuestionToDbRow(q));
+      const chunkSize = 100;
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        const chunk = rows.slice(i, i + chunkSize);
+        const { error } = await resilientUpsert(client, 'questions', chunk);
+        if (error) console.error("Supabase error upserting questions batch:", error);
+      }
     }
 
     if (actualTarget.dimensions && state.dimensions.length > 0) {
